@@ -6,6 +6,7 @@ set_config("buildir", "build")
 
 add_rules("mode.debug", "mode.release")
 add_requires("glfw", "glm")
+add_requires("stb")
 add_requires("gtest")
 
 -- Main App
@@ -15,7 +16,7 @@ target("SimpleRayTracer")
     add_files(os.files("src/**.cpp"), "src/glad.c")
     add_includedirs("include")
 
-    add_packages("glfw", "glm")
+    add_packages("stb", "glfw", "glm")
 
     if is_plat("windows") then
         add_syslinks("opengl32", "gdi32", "user32", "kernel32")

@@ -16,22 +16,22 @@
 namespace IntersectionUtils {
 template <class Prim>
 class BVH {
- public:
   /**
-   * Will have to conform to std430 alignment
-   * 
-   * @var first_child A pointer to the first child in the BVH. The children
-   *                  are expected to be afterwards
-   */
-  struct BVHNode {
-    glm::vec3 min_bounds;
-    glm::vec3 max_bounds;
-    std::uint32_t first_child;
-    std::uint32_t first_prim_index;
-    std::uint32_t prim_count;
-    bool IsLeaf() const { return prim_count > 0; }
-  };
+  * Will have to conform to std430 alignment
+  * 
+  * @var first_child A pointer to the first child in the BVH. The children
+  *                  are expected to be afterwards
+  */
+ struct BVHNode {
+   glm::vec3 min_bounds;
+   glm::vec3 max_bounds;
+   std::uint32_t first_child;
+   std::uint32_t first_prim_index;
+   std::uint32_t prim_count;
+   bool IsLeaf() const { return prim_count > 0; }
+ };
 
+ public:
   /** Constructs a BVH for the given primatives
    * Will also rearrange primatives
    * 

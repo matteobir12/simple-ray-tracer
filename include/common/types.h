@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <utility>
+#include <type_traits>
 
 #include <glm/vec3.hpp>
 
@@ -11,8 +12,13 @@ struct Triangle {
   glm::vec3 v1;
   glm::vec3 v2;
 
-  Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2)
-    : v0(_v0), v1(_v1), v2(_v2) {}
+  template <class T0, class T1, class T2>
+  Triangle(T0&& _v0, T1&& _v1, T2&& _v2)
+    : v0(std::forward<T0>(_v0)), v1(std::forward<T1>(_v1)), v2(std::forward<T2>(_v2)) {
+    static_assert(std::is_same_v<std::decay_t<T0>, glm::vec3>, "T0 must be glm::vec3");
+    static_assert(std::is_same_v<std::decay_t<T1>, glm::vec3>, "T1 must be glm::vec3");
+    static_assert(std::is_same_v<std::decay_t<T2>, glm::vec3>, "T2 must be glm::vec3");
+  }
 
   glm::vec3& operator[](const int idx) {
     if (idx < 0 && idx > 2)

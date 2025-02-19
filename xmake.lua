@@ -6,7 +6,9 @@ set_config("buildir", "build")
 
 add_rules("mode.debug", "mode.release")
 add_requires("glfw", "glm")
+add_requires("gtest", "gtest_main")
 
+-- Main App
 target("SimpleRayTracer")
     set_kind("binary")
     set_languages("c++17")
@@ -19,6 +21,26 @@ target("SimpleRayTracer")
         add_syslinks("opengl32", "gdi32", "user32", "kernel32")
     elseif is_plat("linux") then
         add_syslinks("GL", "X11", "pthread", "dl")
+    end
+
+    if is_mode("debug") then
+        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
+    elseif is_mode("release") then
+        add_cxxflags("-O3")
+    end
+
+-- TESTS
+target("IntersectionUtilsTests")
+    set_kind("binary")
+    set_languages("c++17")
+
+    add_files("include/intersection_utils/tests/*.cpp")
+    add_includedirs("include")
+
+    add_packages("gtest", "gtest_main")
+
+    if is_plat("linux") then
+      add_syslinks("pthread")
     end
 
     if is_mode("debug") then

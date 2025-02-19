@@ -22,9 +22,9 @@ public:
 	const byte* getImageData();
 
 private:
+  uint m_width;
+  uint m_height;
 	byte* m_image;
-	uint m_width;
-	uint m_height;
 	uint m_textureHandle;
 	uint m_numChannels = 3;
 };

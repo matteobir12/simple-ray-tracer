@@ -6,7 +6,7 @@ set_config("buildir", "build")
 
 add_rules("mode.debug", "mode.release")
 add_requires("glfw", "glm")
-add_requires("gtest", "gtest_main")
+add_requires("gtest")
 
 -- Main App
 target("SimpleRayTracer")

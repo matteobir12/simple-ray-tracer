@@ -61,7 +61,7 @@ int main() { // int argc, char** argv
 
   NameMe::InputHandler i_handler(window);
   glfwSetWindowUserPointer(window, &i_handler);
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   
   // could std bind these, but this is probably a bit cleaner
   glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {

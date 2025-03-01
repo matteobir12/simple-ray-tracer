@@ -9,11 +9,13 @@
 #include "raytracer/raytracer.h"
 #include "raytracer/world.h"
 #include "raytracer/raytracer_types.h"
+#include "graphics/texture.h"
 
 namespace {
-constexpr bool RUN_RT   = true;
-constexpr int HEIGHT    = 800;
-constexpr int WIDTH     = 1000;
+constexpr bool RUN_RT       = true;
+constexpr bool REND_TO_TEX  = true;
+constexpr int HEIGHT        = 800;
+constexpr int WIDTH         = 1000;
 
 void GLAPIENTRY MessageCallback(
     GLenum /* source */,
@@ -32,8 +34,7 @@ void GLAPIENTRY MessageCallback(
 
 } // namespace
 
-void SetupWorld(RayTracer::World& world)
-{
+void SetupWorld(RayTracer::World& world) {
     world.add(std::make_shared<RayTracer::Sphere>(RayTracer::Point3(0.0f, 0.0f, -1.0f), 0.5f));
     world.add(std::make_shared<RayTracer::Sphere>(RayTracer::Point3(0.0f, -100.5f, -1.0f), 100.0f));
 }
@@ -95,9 +96,14 @@ int main() { // int argc, char** argv
 
       RayTracer::World world;
       SetupWorld(world);
-      RayTracer::RayTracer raytracer(settings, "image.ppm");
+      RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
       raytracer.Init(world);
       raytracer.Render();
+
+      if (REND_TO_TEX)
+      {
+          const Graphics::Texture& tex = raytracer.getTexture();
+      }
   }
 
   glClearColor(0.0f, 0.0f, 1.0f, 1.0f);

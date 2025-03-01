@@ -13,6 +13,23 @@ using uint = Common::uint;
 using Point3 = glm::vec3;
 using Color = glm::vec3;
 
+struct Color8 {
+	unsigned char r;
+	unsigned char g;
+	unsigned char b;
+
+	unsigned char operator[](int i) {
+		if(i < 0 || i > 2)
+			throw std::out_of_range("Invalid Color8 index: " + i);
+
+		if (i == 0)
+			return r;
+		if (i == 1)
+			return g;
+		return b;
+	}
+};
+
 class HitRecord
 {
 public:

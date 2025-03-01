@@ -1,2 +1,9 @@
 build/
 .xmake/
+SimpleRayTracer/
+x64/
+.vs/
+*.sln
+*.vcxproj
+*.filters
+*.user

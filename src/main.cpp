@@ -1,14 +1,19 @@
 #include <iostream>
+#include <memory>
 
 #include "glad/glad.h"
 
 #include <GLFW/glfw3.h>
 
 #include "input_handler.h"
+#include "raytracer/raytracer.h"
+#include "raytracer/world.h"
+#include "raytracer/raytracer_types.h"
 
 namespace {
-constexpr int HEIGHT = 800;
-constexpr int WIDTH = 1000;
+constexpr bool RUN_RT   = true;
+constexpr int HEIGHT    = 800;
+constexpr int WIDTH     = 1000;
 
 void GLAPIENTRY MessageCallback(
     GLenum /* source */,
@@ -26,6 +31,12 @@ void GLAPIENTRY MessageCallback(
 }
 
 } // namespace
+
+void SetupWorld(RayTracer::World& world)
+{
+    world.add(std::make_shared<RayTracer::Sphere>(RayTracer::Point3(0.0f, 0.0f, -1.0f), 0.5f));
+    world.add(std::make_shared<RayTracer::Sphere>(RayTracer::Point3(0.0f, -100.5f, -1.0f), 100.0f));
+}
 
 int main() { // int argc, char** argv
   if (!glfwInit())
@@ -73,6 +84,21 @@ int main() { // int argc, char** argv
     auto* const handler = static_cast<NameMe::InputHandler*>(glfwGetWindowUserPointer(window));
     handler->OneTimeKeyPressed(key, scancode, action, mods);
   });
+
+  // Run the Raytracer.This is just temporary until we move it to the GPU
+  if (RUN_RT) {
+      RayTracer::CameraSettings settings;
+      settings.aspect = 16.0f / 9.0f;
+      settings.width = 400;
+      settings.samplesPerPixel = 100;
+      settings.maxDepth = 10;
+
+      RayTracer::World world;
+      SetupWorld(world);
+      RayTracer::RayTracer raytracer(settings, "image.ppm");
+      raytracer.Init(world);
+      raytracer.Render();
+  }
 
   glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
   while (!glfwWindowShouldClose(window)) {

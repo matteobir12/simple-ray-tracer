@@ -4,9 +4,65 @@
 #include <utility>
 #include <type_traits>
 
+#include <glm/glm.hpp>
 #include <glm/vec3.hpp>
 
 namespace Common {
+
+using uint = uint32_t;
+const float infinity = std::numeric_limits<float>::infinity();
+
+struct Ray {
+    Ray()
+        : origin()
+        , direction()
+    {}
+
+    Ray(glm::vec3 origin, glm::vec3 direction)
+        : origin(origin)
+        , direction(direction)
+    {}
+
+    glm::vec3 origin;
+
+    /**
+     * Expected to be normalized
+     */
+    glm::vec3 direction;
+    float intersection_distance = 1e30f;
+
+    glm::vec3 at(float t) const { return origin + direction * t; }
+};
+
+class Interval {
+public:
+    float min, max;
+
+    Interval()
+        : min(+infinity)
+        , max(-infinity)
+    {
+    }
+
+    Interval(float min, float max)
+        : min(min)
+        , max(max)
+    {
+    }
+
+    float size() const { return max - min; }
+    bool contains(float x) const { return min <= x && x <= max; }
+    bool surrounds(float x) const { return min < x && x < max; }
+
+    float clamp(float x) const {
+        if (x < min) return min;
+        if (x > max) return max;
+        return x;
+    }
+
+    //static const Interval empty, universe;
+};
+
 struct Triangle {
   glm::vec3 v0;
   glm::vec3 v1;
@@ -48,14 +104,7 @@ struct Triangle {
   }
 };
 
-struct Ray {
-  glm::vec3 origin;
-
-  /**
-   * Expected to be normalized
-   */
-  glm::vec3 direction;
-  float intersection_distance = 1e30f;
-};
+//const Interval Interval::empty = Interval(+infinity, -infinity);
+//const Interval Interval::universe = Interval(-infinity, +infinity);
 
 }  // namespace Common

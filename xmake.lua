@@ -6,13 +6,13 @@ set_config("buildir", "build")
 
 add_rules("mode.debug", "mode.release")
 add_requires("glfw", "glm")
-add_requires("gtest")
+add_requires("gtest", "gtest_main")
 
 -- Main App
 target("SimpleRayTracer")
     set_kind("binary")
     set_languages("c++17")
-    add_files("src/*.cpp", "src/glad.c")
+    add_files(os.files("src/**.cpp"), "src/glad.c")
     add_includedirs("include")
 
     add_packages("glfw", "glm")

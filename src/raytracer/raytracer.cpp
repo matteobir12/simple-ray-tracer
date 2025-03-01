@@ -53,10 +53,13 @@ void RayTracer::Render() {
 	uint samplesPerPixel = camera.getSettings().samplesPerPixel;
 	uint maxDepth = camera.getSettings().maxDepth;
 	std::vector<Graphics::Color8> texData;
+	std::ofstream ostream;
 
 	// TODO this is what will need to move to a compute shader so the work can be done in wavefronts instead of a loop
-	std::ofstream ostream(outFileName);
-	ostream << "P3\n" << width << ' ' << height << "\n255\n";
+	if (!writeTexture) {
+		ostream.open(outFileName);
+		ostream << "P3\n" << width << ' ' << height << "\n255\n";
+	}
 	for (uint j = 0; j < height; ++j)
 	{
 		std::clog << "\rLines Remining: " << (height - j) << ' ' << std::flush;
@@ -79,6 +82,10 @@ void RayTracer::Render() {
 	if (writeTexture)
 	{
 		texture.Init(texData, width, height);
+	}
+	else
+	{
+		ostream.close();
 	}
 
 	std::clog << "\rDone.		\n";

@@ -4,20 +4,29 @@
 #include <string>
 #include <stdexcept>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "glad/glad.h"
 
 namespace AssetUtils {
+namespace Detail {
+struct TextureInfo {
+  GLuint texture_gpu_id = 0;
+  int ref_count = 0;
+};
+
+std::unordered_map<std::string, TextureInfo> LoadedTextures;
+}
 
 class GPUTexture {
-  static std::unordered_map<std::string, GLuint> LoadedTextures_;
-
-  GPUTexture(const std::string& file_name) {
-    const auto it = LoadedTextures_.find(file_name);
-    if (it == LoadedTextures_.cend())
-      return it->second;
+ public:
+  GPUTexture() : texture_id_(0) {}
+  explicit GPUTexture(const std::string& file_name) {
+    const auto it = Detail::LoadedTextures.find(file_name);
+    if (it != Detail::LoadedTextures.cend()) {
+      texture_id_ = it->second.texture_gpu_id;
+      it->second.ref_count += 1;
+    }
 
     int width, height, n_channels;
     unsigned char* const data = stbi_load(file_name.c_str(), &width, &height, &n_channels, 0);
@@ -49,18 +58,28 @@ class GPUTexture {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     stbi_image_free(data);
+    Detail::LoadedTextures[file_name] = {texture_id_, 1};
   }
 
   ~GPUTexture() {
-    LoadedTextures_.erase(texture_id_);
+    for (auto it = Detail::LoadedTextures.begin(); it != Detail::LoadedTextures.end(); ++it) {
+      if (it->second.texture_gpu_id == texture_id_) {
+        it->second.ref_count -= 1;
+        if (it->second.ref_count <= 0 ) {
+          Detail::LoadedTextures.erase(it);
+          if (texture_id_)
+            glDeleteTextures(1, &texture_id_);
 
-    if (texture_id_)
-      glDeleteTextures(1, &texture_id_)
+          break;
+        }
+      }
+    }
   }
 
-  GLuint GetID() const { return texture_id_ }
+  GLuint GetID() const { return texture_id_; }
 
  private:
   GLuint texture_id_;
-}
+};
+
 }  // namespace AssetUtils

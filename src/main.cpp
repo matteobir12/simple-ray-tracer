@@ -178,16 +178,33 @@ void SetupQuad()
 }
 
 void RenderQuad() {
+  // std::cout << "RenderQuad => current context: "
+  // << glfwGetCurrentContext() << std::endl;
+  // std::cout << "RenderQuad => using texture handle: "
+  // << rayTracerTextureHandle << std::endl;
+
   glUseProgram(quadShaderProgram);
   
+  if(rayTracerTextureHandle == 0) {
+    std::cerr << "Error: rayTracerTextureHandle is 0 in RenderQuad" << std::endl;
+    return;
+  }
   // Bind the ray tracer texture using the stored handle
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
-  glUniform1i(glGetUniformLocation(quadShaderProgram, "raytraceTexture"), 0);
-  
+  GLint loc = glGetUniformLocation(quadShaderProgram, "raytraceTexture");
+  if (loc == -1) {
+      std::cerr << "Uniform 'raytraceTexture' not found" << std::endl;
+  }
+  glUniform1i(loc, 0);  
+
   // Draw the quad
   glBindVertexArray(quadVAO);
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+      std::cerr << "OpenGL error after glDrawArrays: " << err << std::endl;
+  }
   glBindVertexArray(0);
 }
 
@@ -201,6 +218,10 @@ int main() { // int argc, char** argv
   if (!glfwInit())
     return -1;
 
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+
   GLFWwindow* const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
   if (!window) {
     glfwTerminate();
@@ -209,6 +230,7 @@ int main() { // int argc, char** argv
   }
 
   glfwMakeContextCurrent(window);
+  std::cout << "Current context: " << glfwGetCurrentContext() << std::endl;
 
   if (!glfwGetCurrentContext()) {
     std::cerr << "Failed to create OpenGL context!" << std::endl;
@@ -229,6 +251,10 @@ int main() { // int argc, char** argv
 
   glDebugMessageCallback(MessageCallback, nullptr);
 
+  // std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << "\n";
+  // std::cout << "GL_RENDERER: " << glGetString(GL_RENDERER) << "\n";
+  // std::cout << "GLSL_VERSION: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
+
   NameMe::InputHandler i_handler(window);
   glfwSetWindowUserPointer(window, &i_handler);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -244,6 +270,7 @@ int main() { // int argc, char** argv
     handler->OneTimeKeyPressed(key, scancode, action, mods);
   });
 
+  glDisable(GL_DEPTH_TEST);
   // Set up our full screen quad
   SetupQuad();
 
@@ -266,9 +293,9 @@ int main() { // int argc, char** argv
           const Graphics::Texture& texture = raytracer.getTexture();
           // Get the texture handle once and store it
           // Note: This calls the method that creates the texture
-          // We're casting away const because your method isn't const
+          // We're casting away const because the method isn't const
           rayTracerTextureHandle = const_cast<Graphics::Texture&>(texture).getTextureHandle();
-
+          const_cast<Graphics::Texture&>(texture).debugReadTexture();
       }
   }
   else {
@@ -277,14 +304,10 @@ int main() { // int argc, char** argv
       
       std::vector<Graphics::Color8> pixels(WIDTH * HEIGHT);
       for (int y = 0; y < HEIGHT; y++) {
-          for (int x = 0; x < WIDTH; x++) {
-              // Create a simple gradient pattern
-              uint8_t r = static_cast<uint8_t>(x * 255 / WIDTH);
-              uint8_t g = static_cast<uint8_t>(y * 255 / HEIGHT);
-              uint8_t b = 128;
-              uint8_t a = 255;
-              pixels[y * WIDTH + x] = Graphics::Color8{r, g, b};
-          }
+        for (int i = 0; i < WIDTH * HEIGHT; i++) {
+          // red
+          pixels[i] = Graphics::Color8{255, 0, 0};
+       }
       }
       
       testTexture.Init(pixels, WIDTH, HEIGHT);

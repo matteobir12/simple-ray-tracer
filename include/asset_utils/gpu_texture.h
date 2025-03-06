@@ -15,15 +15,16 @@ struct TextureInfo {
   int ref_count = 0;
 };
 
-std::unordered_map<std::string, TextureInfo> LoadedTextures;
 }
 
 class GPUTexture {
+  // should be static, cba making a cpp rn
+  std::unordered_map<std::string, Detail::TextureInfo> LoadedTextures;
  public:
   GPUTexture() : texture_id_(0) {}
   explicit GPUTexture(const std::string& file_name) {
-    const auto it = Detail::LoadedTextures.find(file_name);
-    if (it != Detail::LoadedTextures.cend()) {
+    const auto it = LoadedTextures.find(file_name);
+    if (it != LoadedTextures.cend()) {
       texture_id_ = it->second.texture_gpu_id;
       it->second.ref_count += 1;
     }
@@ -58,15 +59,16 @@ class GPUTexture {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     stbi_image_free(data);
-    Detail::LoadedTextures[file_name] = {texture_id_, 1};
+    LoadedTextures[file_name] = {texture_id_, 1};
+    glBindTexture(GL_TEXTURE_2D, 0);
   }
 
   ~GPUTexture() {
-    for (auto it = Detail::LoadedTextures.begin(); it != Detail::LoadedTextures.end(); ++it) {
+    for (auto it = LoadedTextures.begin(); it != LoadedTextures.end(); ++it) {
       if (it->second.texture_gpu_id == texture_id_) {
         it->second.ref_count -= 1;
         if (it->second.ref_count <= 0 ) {
-          Detail::LoadedTextures.erase(it);
+          LoadedTextures.erase(it);
           if (texture_id_)
             glDeleteTextures(1, &texture_id_);
 

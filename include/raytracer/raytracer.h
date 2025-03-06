@@ -26,7 +26,7 @@ public:
 	void Init(World& w);
 	void Render();
 
-	const Graphics::Texture& getTexture() const { return texture; }
+	Graphics::Texture& getTexture() { return texture; }
 
 private:
 	std::string outFileName;

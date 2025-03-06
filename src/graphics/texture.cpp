@@ -9,9 +9,9 @@ Texture::Texture()
 
 Texture::~Texture()
 {
-    if (m_image) {
-        delete[] m_image;
-    }
+    //if (m_image) {
+    //    delete[] m_image;
+    //}
     if (m_textureHandle) {
         glDeleteTextures(1, &m_textureHandle);
     }
@@ -47,8 +47,8 @@ void Texture::Init(const std::vector<Color8>& textureData, uint width, uint heig
 GLuint Texture::getTextureHandle()
 {
     if (m_textureHandle == 0) {
-        std::cout << "Texture::getTextureHandle => current context: "
-          << glfwGetCurrentContext() << std::endl;
+        /*std::cout << "Texture::getTextureHandle => current context: "
+          << glfwGetCurrentContext() << std::endl;*/
 
         glGenTextures(1, &m_textureHandle);
 
@@ -71,7 +71,6 @@ GLuint Texture::getTextureHandle()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0,
                      GL_RGB, GL_UNSIGNED_BYTE, m_image);
 		

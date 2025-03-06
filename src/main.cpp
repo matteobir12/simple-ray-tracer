@@ -40,7 +40,7 @@ in vec2 TexCoord;
 uniform sampler2D raytraceTexture;
 
 void main () {
-  FragColor = texture(raytraceTexture, TexCoord);
+    FragColor = texture(raytraceTexture, TexCoord);
 }
 )";
 
@@ -189,6 +189,7 @@ void RenderQuad() {
     std::cerr << "Error: rayTracerTextureHandle is 0 in RenderQuad" << std::endl;
     return;
   }
+
   // Bind the ray tracer texture using the stored handle
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
@@ -196,7 +197,7 @@ void RenderQuad() {
   if (loc == -1) {
       std::cerr << "Uniform 'raytraceTexture' not found" << std::endl;
   }
-  glUniform1i(loc, 0);  
+  glUniform1i(loc, 0);
 
   // Draw the quad
   glBindVertexArray(quadVAO);
@@ -274,6 +275,7 @@ int main() { // int argc, char** argv
   // Set up our full screen quad
   SetupQuad();
 
+  Graphics::Texture texture;
   // Run the Raytracer
   if (RUN_RT) {
       RayTracer::CameraSettings settings;
@@ -290,30 +292,28 @@ int main() { // int argc, char** argv
 
       if (REND_TO_TEX)
       {
-          const Graphics::Texture& texture = raytracer.getTexture();
+          texture = raytracer.getTexture();
           // Get the texture handle once and store it
           // Note: This calls the method that creates the texture
           // We're casting away const because the method isn't const
-          rayTracerTextureHandle = const_cast<Graphics::Texture&>(texture).getTextureHandle();
-          const_cast<Graphics::Texture&>(texture).debugReadTexture();
+          rayTracerTextureHandle = texture.getTextureHandle();
+          texture.debugReadTexture();
       }
   }
   else {
       // Create a simple test texture
-      Graphics::Texture testTexture;
-      
       std::vector<Graphics::Color8> pixels(WIDTH * HEIGHT);
       for (int y = 0; y < HEIGHT; y++) {
         for (int i = 0; i < WIDTH * HEIGHT; i++) {
           // red
-          pixels[i] = Graphics::Color8{255, 0, 0};
+          pixels[i] = Graphics::Color8{(Graphics::byte)y, 20, 20};
        }
       }
       
-      testTexture.Init(pixels, WIDTH, HEIGHT);
+      texture.Init(pixels, WIDTH, HEIGHT);
       
       // Get the texture handle 
-      rayTracerTextureHandle = testTexture.getTextureHandle();
+      rayTracerTextureHandle = texture.getTextureHandle();
   }
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);

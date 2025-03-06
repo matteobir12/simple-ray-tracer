@@ -12,6 +12,22 @@
 #include "asset_utils/gpu_texture.h"
 
 namespace AssetUtils {
+namespace GPU {
+struct PackedVertexData {
+  alignas(16) glm::vec3 vertex;
+  alignas(8) glm::vec2 texture;
+
+  PackedVertexData(const glm::vec3& v, const glm::vec2& t)
+    : vertex(v), texture(t) {}
+};
+
+struct Triangle {
+  std::array<std::uint32_t, 3> vertex_idxs;
+  std::uint32_t material_idx;
+};
+  
+}
+
 struct Material {
   glm::vec3 diffuse;
   glm::vec3 specular;
@@ -21,7 +37,7 @@ struct Material {
 };
 
 struct Model {
-  std::optional<IntersectionUtils::BVH<Common::Triangle>> model_bvh; // most likely should exist on GPU and this should be GLuint
+  std::optional<IntersectionUtils::BVH<GPU::Triangle>> model_bvh; // most likely should exist on GPU and this should be GLuint
   std::vector<Material> model_materials;
 };
 
@@ -59,9 +75,9 @@ struct Face {
   void SetVertexIdxsValid() { valid_idxs |= 1; }
   void SetTextureIdxsValid() { valid_idxs |= 1 << 1; }
   void SetNormalIdxsValid() { valid_idxs |= 1 << 2; }
-  bool IsVertexIdxsValid() { return valid_idxs & 1; }
-  bool IsTextureIdxsValid() { return valid_idxs & (1 << 1); }
-  bool IsNormalIdxsValid() { return valid_idxs & (1 << 2); }
+  bool IsVertexIdxsValid() const { return valid_idxs & 1; }
+  bool IsTextureIdxsValid() const { return valid_idxs & (1 << 1); }
+  bool IsNormalIdxsValid() const { return valid_idxs & (1 << 2); }
 };
 
 struct CpuSubGeometry {

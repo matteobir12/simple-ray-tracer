@@ -38,42 +38,37 @@ class BVH {
    * probably needs different input type. Will depend on how scene is defined
    */
   BVH(
-      std::vector<Prim>* const prim_ptr,
+      std::vector<Prim> primatives,
       const std::function<glm::vec3(const Prim&)>& center_fn,
       const std::function<std::pair<glm::vec3, glm::vec3>(const Prim&)>& bounds_fn)
+    : primatives_(std::move(primatives))
   {
-    if (!prim_ptr)
-      throw std::runtime_error("prims was nullptr!");
-    
-    std::vector<Prim>& primatives = *prim_ptr;
-    primatives_idxs_.resize(primatives.size());
-    std::transform(primatives_idxs_.cbegin(), primatives_idxs_.cend(), primatives_idxs_.begin(), [](auto idx) {
+    std::vector<std::uint32_t> primatives_idxs;
+    primatives_idxs.resize(primatives_.size());
+    std::transform(primatives_idxs.cbegin(), primatives_idxs.cend(), primatives_idxs.begin(), [](auto idx) {
       return idx;
     });
 
-    bvh_.resize((2 * primatives.size()) - 1); // might need to change if switching to BVH4 or BVH8
+    bvh_.resize((2 * primatives_.size()) - 1); // might need to change if switching to BVH4 or BVH8
 
     std::vector<glm::vec3> centers;
-    centers.reserve(primatives.size());
-    for (const auto& primative : primatives)
+    centers.reserve(primatives_.size());
+    for (const auto& primative : primatives_)
       centers.emplace_back(center_fn(primative));
 
     BVHNode& root = bvh_[0];
     root.first_child = 0;
     root.first_prim_index = 0;
-    root.prim_count = primatives.size();
-    UpdateNodeBounds(primatives, bounds_fn, &root);
+    root.prim_count = primatives_.size();
+    UpdateNodeBounds(primatives_idxs, bounds_fn, &root);
+    Subdivide(&primatives_idxs, centers, bounds_fn, &root);
 
-    Subdivide(primatives, centers, bounds_fn, &root);
+    // reorder primatives_
   }
 
  private:
-  /**
-   *
-   * Note: should inspect output, I want to see simd and I'm not sure if that'll happen with the current impl
-   */
   void UpdateNodeBounds(
-      const std::vector<Prim>& primatives,
+      const std::vector<std::uint32_t>& primatives_idxs,
       const std::function<std::pair<glm::vec3, glm::vec3>(const Prim&)>& bounds_fn,
       BVHNode* const node_ptr) {
     BVHNode& node = *node_ptr;
@@ -81,8 +76,8 @@ class BVH {
     node.max_bounds = glm::vec3(std::numeric_limits<float>::lowest());
     const std::uint32_t first = node.first_prim_index;
     for (std::uint32_t i = 0; i < node.prim_count; i++) {
-      const auto leaf_prim_idx = primatives_idxs_[first + i];
-      const auto& leaf_prim = primatives[leaf_prim_idx];
+      const auto leaf_prim_idx = primatives_idxs[first + i];
+      const auto& leaf_prim = primatives_[leaf_prim_idx];
       const auto [prim_min, prim_max] = bounds_fn(leaf_prim);
 
       node.min_bounds = glm::min(node.min_bounds, prim_min);
@@ -91,17 +86,18 @@ class BVH {
   }
 
   void Subdivide(
-      const std::vector<Prim>& primatives,
+      std::vector<std::uint32_t>* const primatives_idxs_ptr,
       const std::vector<glm::vec3>& centers,
       const std::function<std::pair<glm::vec3, glm::vec3>(const Prim&)>& bounds_fn,
       BVHNode* const node_ptr) {
+    auto& primatives_idxs = *primatives_idxs_ptr;
     auto& node = *node_ptr;
     if (node.prim_count <= 2)
       return;
 
     const glm::vec3 extent = node.max_bounds - node.min_bounds;
 
-    // stand in for axis to divide.
+    // stand in for axis to divide, find better partitioning algo.
     int axis = 0;
     if (extent.y > extent.x)
       axis = 1;
@@ -114,10 +110,10 @@ class BVH {
     std::uint32_t i = node.first_prim_index;
     std::uint32_t j = i + node.prim_count - 1;
     while (i <= j) {
-      if (centers[primatives_idxs_[i]][axis] < split_pos)
+      if (centers[primatives_idxs[i]][axis] < split_pos)
         i++;
       else
-        std::swap(primatives_idxs_[i], primatives_idxs_[j--]);
+        std::swap(primatives_idxs[i], primatives_idxs[j--]);
     }
     
     const std::uint32_t left_count = i - node.first_prim_index;
@@ -135,14 +131,14 @@ class BVH {
     node.prim_count = 0;
     next_free_node_idx_ += 2;
 
-    UpdateNodeBounds(primatives, bounds_fn, &bvh_[left_child_idx]);
-    UpdateNodeBounds(primatives, bounds_fn, &bvh_[right_child_idx]);
-    Subdivide(primatives, centers, bounds_fn, &bvh_[left_child_idx]);
-    Subdivide(primatives, centers, bounds_fn, &bvh_[right_child_idx]);
+    UpdateNodeBounds(primatives_idxs, bounds_fn, &bvh_[left_child_idx]);
+    UpdateNodeBounds(primatives_idxs, bounds_fn, &bvh_[right_child_idx]);
+    Subdivide(&primatives_idxs, centers, bounds_fn, &bvh_[left_child_idx]);
+    Subdivide(&primatives_idxs, centers, bounds_fn, &bvh_[right_child_idx]);
   }
 
+  std::vector<Prim> primatives_;
   std::vector<BVHNode> bvh_;
-  std::vector<std::uint32_t> primatives_idxs_;
   std::uint32_t next_free_node_idx_;
 };
 

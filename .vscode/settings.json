@@ -76,6 +76,9 @@
     "stack": "cpp",
     "__bit_reference": "cpp",
     "__string": "cpp",
-    "filesystem": "cpp"
+    "filesystem": "cpp",
+    "shared_mutex": "cpp",
+    "cfenv": "cpp",
+    "__node_handle": "cpp"
   }
 }

@@ -261,10 +261,90 @@ void ParseMTL(
   }
 }
 
-std::unique_ptr<Model> ConvertCPUGeometryToModel(std::unique_ptr<CpuGeometry> cpu_geo, std::unordered_map<std::string, Material> materials) {
-  // IntersectionUtils::BVH<Common::Triangle> bvh();
-  // return std::make_unique<Model>(std::move(bvh), mtls);
-  return std::make_unique<Model>();
+std::unique_ptr<Model> ConvertCPUGeometryToModel(
+    std::unique_ptr<CpuGeometry> cpu_geo,
+    std::unordered_map<std::string, Material> materials) {
+  std::vector<Material> model_materials; 
+  model_materials.reserve(materials.size());
+  
+  std::unordered_map<std::string, std::uint32_t> material_index_map;
+  material_index_map.reserve(materials.size());
+
+  for (const auto& kv : materials) {
+    const std::string& mat_name = kv.first;
+    const Material& mat_val = kv.second;
+    material_index_map[mat_name] = static_cast<std::uint32_t>(model_materials.size());
+    model_materials.push_back(mat_val);
+  }
+
+  std::vector<GPU::PackedVertexData> packed_verts;
+  packed_verts.reserve(3 * 1000); // Calc real capacity
+
+  std::vector<GPU::Triangle> all_triangles;
+  all_triangles.reserve(1000); // Calc real capacity
+
+  const auto push_vertex = [&packed_verts](const glm::vec3& pos, const glm::vec2& tex) -> std::uint32_t {
+    packed_verts.emplace_back(pos, tex);
+    return static_cast<std::uint32_t>(packed_verts.size() - 1);
+  };
+
+  for (const auto& sub_geo : cpu_geo->geometries) {
+    std::uint32_t material_idx = 0;
+    const auto it = material_index_map.find(sub_geo.material);
+    if (it != material_index_map.cend()) {
+      material_idx = it->second;
+    } else {
+      std::cout << "Couldn't find expected material" << std::endl;
+    }
+
+    for (const auto& face : sub_geo.faces) {
+      GPU::Triangle tri;
+      tri.material_idx = material_idx;
+      for (int corner = 0; corner < 3; ++corner) {
+        const glm::vec3& pos = cpu_geo->vertices[face.vertex_idxs[corner]];
+
+        glm::vec2 uv(0.0f);
+        if (cpu_geo->has_texcoords && face.IsTextureIdxsValid())
+          uv = cpu_geo->textures[face.texture_idxs[corner]];
+
+          tri.vertex_idxs[corner] = push_vertex(pos, uv);
+      }
+
+      all_triangles.push_back(tri);
+    }
+  }
+
+  const auto center_fn = [&packed_verts](const GPU::Triangle& tri) -> glm::vec3 {
+    const glm::vec3& p0 = packed_verts[tri.vertex_idxs[0]].vertex;
+    const glm::vec3& p1 = packed_verts[tri.vertex_idxs[1]].vertex;
+    const glm::vec3& p2 = packed_verts[tri.vertex_idxs[2]].vertex;
+    return (p0 + p1 + p2) / 3.0f;
+  };
+
+  const auto bounds_fn = [&packed_verts](const GPU::Triangle& tri) -> std::pair<glm::vec3, glm::vec3> {
+    const glm::vec3& p0 = packed_verts[tri.vertex_idxs[0]].vertex;
+    const glm::vec3& p1 = packed_verts[tri.vertex_idxs[1]].vertex;
+    const glm::vec3& p2 = packed_verts[tri.vertex_idxs[2]].vertex;
+
+    std::pair<glm::vec3, glm::vec3> out = std::make_pair(p0, p0);
+    out.first = glm::min(out.first, p1);
+    out.first = glm::min(out.first, p2);
+    out.second = glm::max(out.second, p1);
+    out.second = glm::max(out.second, p2);
+
+    return out;
+  };
+
+  IntersectionUtils::BVH<GPU::Triangle> bvh(
+      all_triangles, 
+      center_fn, 
+      bounds_fn);
+
+  auto model = std::make_unique<Model>();
+  model->model_bvh = std::move(bvh);
+  model->model_materials = std::move(model_materials);
+
+  return model;
 }
 
 }

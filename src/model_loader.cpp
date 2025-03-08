@@ -336,13 +336,14 @@ std::unique_ptr<Model> ConvertCPUGeometryToModel(
   };
 
   IntersectionUtils::BVH<GPU::Triangle> bvh(
-      all_triangles, 
+      std::move(all_triangles), 
       center_fn, 
       bounds_fn);
 
   auto model = std::make_unique<Model>();
   model->model_bvh = std::move(bvh);
   model->model_materials = std::move(model_materials);
+  model->vertex_data_buffer = std::move(packed_verts);
 
   return model;
 }

@@ -14,23 +14,23 @@
 #include "common/types.h"
 
 namespace IntersectionUtils {
+/**
+* Will have to conform to std430 alignment
+* 
+* @var first_child A pointer to the first child in the BVH. The children
+*                  are expected to be afterwards
+*/
+struct BVHNode {
+  glm::vec3 min_bounds;
+  glm::vec3 max_bounds;
+  std::uint32_t first_child;
+  std::uint32_t first_prim_index;
+  std::uint32_t prim_count;
+  bool IsLeaf() const { return prim_count > 0; }
+};
+
 template <class Prim>
 class BVH {
-  /**
-  * Will have to conform to std430 alignment
-  * 
-  * @var first_child A pointer to the first child in the BVH. The children
-  *                  are expected to be afterwards
-  */
- struct BVHNode {
-   glm::vec3 min_bounds;
-   glm::vec3 max_bounds;
-   std::uint32_t first_child;
-   std::uint32_t first_prim_index;
-   std::uint32_t prim_count;
-   bool IsLeaf() const { return prim_count > 0; }
- };
-
  public:
   /** Constructs a BVH for the given primatives
    * Will also rearrange primatives
@@ -66,6 +66,8 @@ class BVH {
     // reorder primatives_
   }
 
+  const std::vector<BVHNode>& GetBVH() const { return bvh_; }
+  const std::vector<Prim>& GetPrims() const { primatives_; } 
  private:
   void UpdateNodeBounds(
       const std::vector<std::uint32_t>& primatives_idxs,

@@ -25,20 +25,21 @@ struct Triangle {
   std::array<std::uint32_t, 3> vertex_idxs;
   std::uint32_t material_idx;
 };
-  
 }
 
+// needs to match shaders/ray_intersects.glsl Material
 struct Material {
   glm::vec3 diffuse;
   glm::vec3 specular;
   float specular_ex;
   GPUTexture texture;
-  bool use_texture = false;
+  std::uint32_t use_texture = false;
 };
 
 struct Model {
-  std::optional<IntersectionUtils::BVH<GPU::Triangle>> model_bvh; // most likely should exist on GPU and this should be GLuint
+  IntersectionUtils::BVH<GPU::Triangle> model_bvh;
   std::vector<Material> model_materials;
+  std::vector<GPU::PackedVertexData> vertex_data_buffer;
 };
 
 // These are temporary structs for creating the above

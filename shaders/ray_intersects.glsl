@@ -32,7 +32,6 @@ struct Material {
   vec3 diffuse;
   vec3 specular;
   float specular_ex;
-  // Sampler2D texture; // when textures are supported
   uint use_texture = 0; // bool
 };
 

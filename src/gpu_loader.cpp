@@ -12,6 +12,13 @@ struct GPUBVH {
   std::uint32_t count;
 };
 
+struct GPUMaterial {
+  glm::vec3 diffuse;
+  glm::vec3 specular;
+  float specular_ex;
+  std::uint32_t use_texture; // 0 or 1
+};
+
 struct GPUTriangle {
   std::uint32_t v0_idx;
   std::uint32_t v1_idx;
@@ -24,7 +31,7 @@ static std::vector<GPUBVH> g_bvhs;
 // all BVH nodes from all models
 static std::vector<IntersectionUtils::BVHNode> g_bvh_nodes;
 // all materials from all models
-static std::vector<Material> g_materials;
+static std::vector<GPUMaterial> g_materials;
 // all triangles from all models
 static std::vector<GPUTriangle> g_triangles;
 // all vertices from all models
@@ -47,8 +54,15 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
     const Model& model = *model_ptr;
 
     std::uint32_t model_mat_off = cur_material_off;
-    for (const auto& mat : model.model_materials)
-      g_materials.push_back(mat);
+    for (const auto& mat : model.model_materials) {
+      GPUMaterial gpu_mat;
+      gpu_mat.diffuse = mat.diffuse;
+      gpu_mat.specular = mat.specular;
+      gpu_mat.specular_ex = mat.specular_ex;
+      gpu_mat.use_texture = mat.use_texture;
+
+      g_materials.push_back(gpu_mat);
+    }
 
     cur_material_off += static_cast<std::uint32_t>(model.model_materials.size());
 
@@ -117,7 +131,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_materials_SSBO);
   glBufferData(
       GL_SHADER_STORAGE_BUFFER,
-      g_materials.size() * sizeof(Material),
+      g_materials.size() * sizeof(GPUMaterial),
       g_materials.data(),
       GL_STATIC_DRAW);
 

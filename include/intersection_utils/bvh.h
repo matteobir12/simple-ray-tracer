@@ -94,6 +94,8 @@ class BVH {
       BVHNode* const node_ptr) {
     auto& primatives_idxs = *primatives_idxs_ptr;
     auto& node = *node_ptr;
+    // I'm not certain this condition is logically sound.
+    // Should probably implement something like if prim_count == prev prim_count return
     if (node.prim_count <= 2)
       return;
 

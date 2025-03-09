@@ -1,5 +1,8 @@
 #version 450
 
+// Look into these sizes
+layout(local_size_x = 8, local_size_y = 8) in;
+
 // describes the start and end of each BVH in the BVHNodeBuffer
 struct BVH {
   uint first_index;
@@ -67,6 +70,22 @@ layout(std430, binding = 4) buffer VertexBuffer {
   VertexData vertices[];
 };
 
+struct Ray {
+  vec3 origin;
+  float _pad0; // ?? Idk I've seen this around
+  vec3 direction;
+  float _pad1;
+};
+
+layout(std430, binding = 5) buffer RayBuffer {
+  Ray rays[];
+};
+
+// out buffer?
+// layout(std430, binding = 6) buffer HitBuffer {
+//   uint hits[];
+// };
+
 bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_bounds) {
   vec3 inv_dir = 1.0 / ray_dir;
   vec3 t0 = (min_bounds - ray_origin) * inv_dir;
@@ -79,16 +98,22 @@ bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_boun
 }
 
 // could make branchless, but doubt it will make a large diff
-bool IntersectsTriangle(vec3 ray_origin, vec3 ray_dir, Triangle tri) {
-  vec3 edge_1 = tri.v1 - tri.v0;
-  vec3 edge_2 = tri.v2 - tri.v0;
+bool IntersectsTriangle(
+    vec3 ray_origin,
+    vec3 ray_dir,
+    Triangle tri,
+    vec3 v0,
+    vec3 v1,
+    vec3 v2) {
+  vec3 edge_1 = v1 - v0;
+  vec3 edge_2 = v2 - v0;
   vec3 h = cross(ray_dir, edge_2);
   float a = dot(edge_1, h);
   if (a > -0.0001f && a < 0.0001f)
     return false; // ray parallel to triangle
 
   float f = 1 / a;
-  vec3 s = ray_origin - tri.v0;
+  vec3 s = ray_origin - v0;
   float u = f * dot(s, h);
   if (u < 0 || u > 1)
     return false;
@@ -102,35 +127,60 @@ bool IntersectsTriangle(vec3 ray_origin, vec3 ray_dir, Triangle tri) {
   return t > 0.0001f;
 }
 
-bool Intersects(vec3 ray_origin, vec3 ray_dir) {
-  int stack[64];
+bool Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
+  uint stack[64];
   int stack_idx = 0;
-  stack[stack_idx++] = 0;
+  stack[stack_idx++] = bvh_start_index;
 
   while (stack_idx > 0) {
-    int node_idx = stack[--stack_idx];
+    uint node_idx = stack[--stack_idx];
     BVHNode node = nodes[node_idx];
 
     if (IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds)) {
-      if (node.triangle_index >= 0) { // leaf node
-        Triangle tri = triangles[node.triangle_index];
-        if (IntersectsTriangle(ray_origin, ray_dir, tri)) {
-          // currently just finds the first triangle
-          //No gurentee this is the only or closest
-          // also will need to return triangle mtl data
-          return true;
+      if (node.prim_count > 0) {
+        // leaf node
+        for (uint i = 0; i < node.prim_count; i++;) {
+          Triangle tri = triangles[node.first_prim_index + i];
+
+          vec3 v0 = vertices[tri.v0_idx].vertex;
+          vec3 v1 = vertices[tri.v1_idx].vertex;
+          vec3 v2 = vertices[tri.v2_idx].vertex;
+
+          if (IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2)) {
+            return true;
+          }
         }
       } else {
         // internal node
+        uint left_child  = node.first_child;
+        uint right_child = node.first_child + 1;
         // if we add the child that is closer to the ray origin first we may
-        // be able to return on first triangle found, but will still need to
+        // be able to return on first triangle found, but I will still need to
         // think on this
-        stack[stack_idx++] = node.left_child;
-        stack[stack_idx++] = node.right_child;
+        stack[stack_idx++] = left_child;
+        stack[stack_idx++] = right_child;
       }
     }
   }
 
   // hit nothing
   return false;
+}
+
+void main() {
+  // 2D dispatch
+  uvec2 gid = gl_GlobalInvocationID.xy;
+
+  // validate this indexing
+  uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+  uint index = gid.y * width + gid.x;
+
+  Ray ray = rays[index];
+
+  // will need some sort of closest hit
+  // for (every bounce)
+  // for (every model in scene) or replace with a bvh traverse
+  // transform ray into model's space
+  // bool hit = Intersects(model's bvh start index,  trans_ray.origin, trans_ray.direction);
+  // calc new ray from bounce or exit
 }

@@ -9,7 +9,9 @@
 #include "raytracer/raytracer.h"
 #include "raytracer/world.h"
 #include "raytracer/raytracer_types.h"
+#include "raytracer/utils.h"
 #include "graphics/texture.h"
+#include "graphics/shader.h"
 
 #include <vector>
 
@@ -116,9 +118,11 @@ void main () {
   }
 
   GLuint quadVAO = 0, quadVBO = 0;
+  GLuint noiseTBO = 0, noiseTex = 0;
   GLuint quadShaderProgram = 0;
   GLuint rayTracerTextureHandle = 0;
 
+  constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
   constexpr int HEIGHT = 800;
@@ -141,6 +145,40 @@ void main () {
   }
 
 } // namespace
+
+void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData) {
+    compute.Init();
+
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR)
+        std::cerr << "Compute Init Error: " << err << std::endl;
+
+    for (auto& vec : noiseData) {
+        vec = Common::randomUnitVector();
+    }
+
+    int dataSize = WIDTH * HEIGHT * 3 * sizeof(float);
+    glGenBuffers(1, &noiseTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBO);
+    glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseData.data(), GL_DYNAMIC_DRAW);
+
+    while ((err = glGetError()) != GL_NO_ERROR)
+        std::cerr << "Bind Noise Buffer: " << err << std::endl;
+
+    glGenTextures(1, &noiseTex);
+    glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBO);
+
+    while ((err = glGetError()) != GL_NO_ERROR)
+        std::cerr << "Bind Noise Buffer: " << err << std::endl;
+
+    /*glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
+    glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);*/
+
+    while ((err = glGetError()) != GL_NO_ERROR)
+        std::cerr << "Bind Noise Buffer: " << err << std::endl;
+}
 
 void SetupWorld(RayTracer::World &world)
 {
@@ -219,7 +257,7 @@ int main() { // int argc, char** argv
   if (!glfwInit())
     return -1;
 
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
@@ -272,16 +310,26 @@ int main() { // int argc, char** argv
   });
 
   glDisable(GL_DEPTH_TEST);
+
+  
   // Set up our full screen quad
   SetupQuad();
 
+  Graphics::Compute compute("./shaders/raytrace_compute.glsl");
   Graphics::Texture texture;
+  std::vector<glm::vec3> noiseData(WIDTH * HEIGHT);
+  if (RUN_COMPUTE_RT) {
+      texture.setWidth(WIDTH);
+      texture.setHeight(HEIGHT);
+      rayTracerTextureHandle = texture.getTextureHandle(true);
+      InitCompute(compute, noiseData);
+  }
   // Run the Raytracer
-  if (RUN_RT) {
+  else if (RUN_RT) {
       RayTracer::CameraSettings settings;
       settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
       settings.width = WIDTH;
-      settings.samplesPerPixel = 100;
+      settings.samplesPerPixel = 1/*00*/;
       settings.maxDepth = 10;
 
       RayTracer::World world;
@@ -316,6 +364,8 @@ int main() { // int argc, char** argv
       rayTracerTextureHandle = texture.getTextureHandle();
   }
 
+  std::vector<glm::vec3> noise = RayTracer::getNoiseBuffer();
+
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -325,6 +375,24 @@ int main() { // int argc, char** argv
       std::cerr << "OpenGL error: " << err << std::endl;
 
     i_handler.PollKeys();
+
+
+
+    if (RUN_COMPUTE_RT) {
+        compute.Use();
+
+        compute.SetInt("Width", WIDTH);
+        compute.SetInt("Height", HEIGHT);
+        compute.SetFloat("RandX", Common::randomFloat());
+        compute.SetFloat("RandY", Common::randomFloat());
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
+        glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);
+
+        glDispatchCompute((unsigned int)WIDTH, (unsigned int)HEIGHT, 1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    }
     
     // Render the full screen quad with the ray tracer texture
     if (rayTracerTextureHandle != 0) {

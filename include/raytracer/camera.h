@@ -46,9 +46,9 @@ public:
 	Common::Ray GetRay(uint i, uint j);
 	Color RayColor(const Common::Ray& r, uint depth, World& world) const;
 
-	inline const uint getWidth() const { return width; }
-	inline const uint getHeight() const { return height; }
-	inline const float getPixelSamplesScale() const { return pixelSamplesScale; }
+	inline uint getWidth() const { return width; }
+	inline uint getHeight() const { return height; }
+	inline float getPixelSamplesScale() const { return pixelSamplesScale; }
 	inline const CameraSettings& getSettings() const{ return cameraSettings; }
 
 private:

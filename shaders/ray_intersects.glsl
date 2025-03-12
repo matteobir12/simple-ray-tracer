@@ -3,12 +3,16 @@
 // Look into these sizes
 layout(local_size_x = 8, local_size_y = 8) in;
 
-// describes the start and end of each BVH in the BVHNodeBuffer
+// describes the start and len of each BVH in the BVHNodeBuffer
+// as well as the coordinate frame the bvh is in (world frame to model frame)
+// I'm pretty sure this is also inverse traditional model matrix
 struct BVH {
   uint first_index;
   uint count;
+  mat4 frame;
 };
 
+uniform uint bvh_count;
 layout(std430, binding = 0) buffer BVHsBuffer {
   BVH bvhs[];
 };
@@ -35,7 +39,7 @@ struct Material {
   vec3 diffuse;
   vec3 specular;
   float specular_ex;
-  uint use_texture = 0; // bool
+  uint use_texture; // bool
 };
 
 // buffer of all materials in the scene
@@ -74,17 +78,17 @@ struct Ray {
   vec3 origin;
   float _pad0; // ?? Idk I've seen this around
   vec3 direction;
-  float _pad1;
+  float intersection_distance;
 };
 
 layout(std430, binding = 5) buffer RayBuffer {
   Ray rays[];
 };
 
-// out buffer?
-// layout(std430, binding = 6) buffer HitBuffer {
-//   uint hits[];
-// };
+// tmp testing out buffer
+layout(std430, binding = 6) buffer HitBuffer {
+  uint hits[];
+};
 
 bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_bounds) {
   vec3 inv_dir = 1.0 / ray_dir;
@@ -101,7 +105,6 @@ bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_boun
 bool IntersectsTriangle(
     vec3 ray_origin,
     vec3 ray_dir,
-    Triangle tri,
     vec3 v0,
     vec3 v1,
     vec3 v2) {
@@ -127,7 +130,8 @@ bool IntersectsTriangle(
   return t > 0.0001f;
 }
 
-bool Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
+// Returns index of triangle hit, or sentinal if miss (uint(-1))
+uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
   uint stack[64];
   int stack_idx = 0;
   stack[stack_idx++] = bvh_start_index;
@@ -139,7 +143,7 @@ bool Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
     if (IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds)) {
       if (node.prim_count > 0) {
         // leaf node
-        for (uint i = 0; i < node.prim_count; i++;) {
+        for (uint i = 0; i < node.prim_count; ++i) {
           Triangle tri = triangles[node.first_prim_index + i];
 
           vec3 v0 = vertices[tri.v0_idx].vertex;
@@ -147,7 +151,7 @@ bool Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
           vec3 v2 = vertices[tri.v2_idx].vertex;
 
           if (IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2)) {
-            return true;
+            return node.first_prim_index + i;
           }
         }
       } else {
@@ -164,7 +168,7 @@ bool Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
   }
 
   // hit nothing
-  return false;
+  return uint(-1);
 }
 
 void main() {
@@ -180,7 +184,12 @@ void main() {
   // will need some sort of closest hit
   // for (every bounce)
   // for (every model in scene) or replace with a bvh traverse
-  // transform ray into model's space
-  // bool hit = Intersects(model's bvh start index,  trans_ray.origin, trans_ray.direction);
-  // calc new ray from bounce or exit
+  for (uint i = 0; i < bvh_count; i++) {
+    // transform ray into model's space
+    vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
+    vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
+    uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz);
+    // calc new ray from bounce or exit
+    hits[index] = hit != uint(-1)? 1u : 0u;
+  }
 }

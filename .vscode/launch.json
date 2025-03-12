@@ -5,7 +5,7 @@
           "name": "Launch VulkanTest",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/build/linux/x86_64/debug/SimpleRayTracer",
+          "program": "${workspaceFolder}/build/linux/x86_64/debug/ComputeTests",
           "args": [],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",

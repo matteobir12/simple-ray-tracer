@@ -7,7 +7,7 @@ class InputHandler {
  public:
   InputHandler(GLFWwindow* const window) : window_(window) {}
 
-  void MouseMovement(const double xpos, const double ypos) {}
+  void MouseMovement(const double /* xpos */, const double /* ypos */) {}
 
   /**
    * For Rarer single time key presses

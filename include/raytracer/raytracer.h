@@ -16,11 +16,11 @@ namespace RayTracer {
 class RayTracer {
 public:
 	RayTracer(CameraSettings settings, std::string outFile, bool writeTexture)
-		: camera(settings)
-		, outFileName(outFile)
+		: outFileName(outFile)
+		, camera(settings)
 		, world()
-		, writeTexture(writeTexture)
 		, texture()
+		, writeTexture(writeTexture)
 	{}
 
 	void Init(World& w);

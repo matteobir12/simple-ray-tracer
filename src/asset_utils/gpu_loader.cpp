@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <cstdint>
+#include <iostream>
 
 #include "intersection_utils/bvh.h"
 
@@ -10,6 +11,7 @@ namespace {
 struct GPUBVH {
   std::uint32_t first_index;
   std::uint32_t count;
+  glm::mat4 frame = glm::mat4(1);
 };
 
 struct GPUMaterial {
@@ -36,6 +38,14 @@ static std::vector<GPUMaterial> g_materials;
 static std::vector<GPUTriangle> g_triangles;
 // all vertices from all models
 static std::vector<GPU::PackedVertexData> g_vertices;
+
+static GLuint s_bvh_ranges_SSBO = 0;
+static GLuint s_bvh_nodes_SSBO = 0;
+static GLuint s_materials_SSBO = 0;
+static GLuint s_triangles_SSBO = 0;
+static GLuint s_vertices_SSBO = 0;
+
+static GLuint s_ray_buffer = 0;
 }
 
 void UploadModelDataToGPU(const std::vector<Model*>& models) {
@@ -51,6 +61,8 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
   std::uint32_t cur_vertex_off = 0;
 
   for (const auto& model_ptr : models) {
+    if (!model_ptr)
+      throw std::runtime_error("Model was null!");
     const Model& model = *model_ptr;
 
     std::uint32_t model_mat_off = cur_material_off;
@@ -104,22 +116,19 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
     cur_BVH_node_off += gpu_BVH.count;
   }
 
-  static GLuint s_bvh_ranges_SSBO = 0;
-  static GLuint s_bvh_nodes_SSBO = 0;
-  static GLuint s_materials_SSBO = 0;
-  static GLuint s_triangles_SSBO = 0;
-  static GLuint s_vertices_SSBO = 0;
-
-  for (const auto buff_id : {s_bvh_ranges_SSBO, s_bvh_nodes_SSBO, s_materials_SSBO, s_triangles_SSBO, s_vertices_SSBO})
-    if (buff_id == 0)
-      glGenBuffers(1, &s_bvh_ranges_SSBO);
+  for (auto* const buff_id : {&s_bvh_ranges_SSBO, &s_bvh_nodes_SSBO, &s_materials_SSBO, &s_triangles_SSBO, &s_vertices_SSBO}) {
+    if (*buff_id == 0)
+      glGenBuffers(1, buff_id);
+    else
+      std::cout << "Not recommended to re-call this function. Currently buffers are created with GL_STATIC_DRAW" << std::endl;
+  }
 
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_ranges_SSBO);
   glBufferData(
       GL_SHADER_STORAGE_BUFFER,
       g_bvhs.size() * sizeof(GPUBVH),
       g_bvhs.data(),
-      GL_STATIC_DRAW);
+      GL_DYNAMIC_DRAW);
 
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_nodes_SSBO);
   glBufferData(
@@ -155,5 +164,30 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_materials_SSBO);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_triangles_SSBO);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_vertices_SSBO);
+}
+
+void UpdateModelMatrix(const std::uint32_t index, const glm::mat4& matrix) {
+  g_bvhs.at(index).frame = matrix;
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_ranges_SSBO);
+  glBufferData(
+      GL_SHADER_STORAGE_BUFFER,
+      g_bvhs.size() * sizeof(GPUBVH),
+      g_bvhs.data(),
+      GL_DYNAMIC_DRAW);
+}
+
+void UpdateRays(const std::uint32_t ray_count, const Common::Ray* const ray_buffer) {
+  if (s_ray_buffer == 0)
+    glGenBuffers(1, &s_ray_buffer);
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_ray_buffer);
+  // GL_DYNAMIC_COPY if the gpu writes to it, otherwise GL_DYNAMIC_DRAW
+  glBufferData(
+      GL_SHADER_STORAGE_BUFFER,
+      ray_count * sizeof(Common::Ray),
+      ray_buffer,
+      GL_DYNAMIC_COPY);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, s_ray_buffer);
 }
 }

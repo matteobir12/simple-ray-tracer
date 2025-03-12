@@ -24,7 +24,7 @@ struct Ray {
     {}
 
     glm::vec3 origin;
-
+    float _pad0;
     /**
      * Expected to be normalized
      */

@@ -161,6 +161,9 @@ std::unique_ptr<CpuGeometry> ParseOBJ(
     else if (prefix == "o") {
       // new object, can also be ignored or used to separate geometry
     }
+    else if (prefix == "g") {
+      // group. Idk if we care
+    }
     else {
       std::cout << "unhandled obj line prefix: " << prefix << std::endl;
     }
@@ -255,6 +258,18 @@ void ParseMTL(
       linestream >> e;
       current_material->specular_ex = e;
     }
+    else if (prefix == "Ke") {
+      // emissive (ignored or stored if needed)
+    }
+    else if (prefix == "d") {
+      // ??
+    }
+    else if (prefix == "illum") {
+      // ??
+    }
+    else if (prefix == "Tr") {
+      // ??
+    }
     else {
       std::cout << "Unknown material property: " << prefix << std::endl;
     }
@@ -307,7 +322,7 @@ std::unique_ptr<Model> ConvertCPUGeometryToModel(
         if (cpu_geo->has_texcoords && face.IsTextureIdxsValid())
           uv = cpu_geo->textures[face.texture_idxs[corner]];
 
-          tri.vertex_idxs[corner] = push_vertex(pos, uv);
+        tri.vertex_idxs[corner] = push_vertex(pos, uv);
       }
 
       all_triangles.push_back(tri);
@@ -340,10 +355,10 @@ std::unique_ptr<Model> ConvertCPUGeometryToModel(
       center_fn, 
       bounds_fn);
 
-  auto model = std::make_unique<Model>();
-  model->model_bvh = std::move(bvh);
-  model->model_materials = std::move(model_materials);
-  model->vertex_data_buffer = std::move(packed_verts);
+  auto model = std::make_unique<Model>(
+      std::move(bvh),
+      std::move(model_materials),
+      std::move(packed_verts));
 
   return model;
 }

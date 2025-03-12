@@ -3,6 +3,7 @@
 #include <array>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 #include "glad/glad.h"
 #include <glm/glm.hpp>
@@ -40,6 +41,15 @@ struct Model {
   IntersectionUtils::BVH<GPU::Triangle> model_bvh;
   std::vector<Material> model_materials;
   std::vector<GPU::PackedVertexData> vertex_data_buffer;
+
+  Model(
+    IntersectionUtils::BVH<GPU::Triangle> _model_bvh,
+    std::vector<Material> _model_materials,
+    std::vector<GPU::PackedVertexData> _vertex_data_buffer)
+    : model_bvh(std::move(_model_bvh)),
+      model_materials(std::move(_model_materials)),
+      vertex_data_buffer(std::move(_vertex_data_buffer))
+   {};
 };
 
 // These are temporary structs for creating the above

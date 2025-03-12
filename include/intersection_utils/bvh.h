@@ -44,10 +44,9 @@ class BVH {
     : primatives_(std::move(primatives))
   {
     std::vector<std::uint32_t> primatives_idxs;
-    primatives_idxs.resize(primatives_.size());
-    std::transform(primatives_idxs.cbegin(), primatives_idxs.cend(), primatives_idxs.begin(), [](auto idx) {
-      return idx;
-    });
+    primatives_idxs.reserve(primatives_.size());
+    for (std::size_t i = 0; i < primatives_.size(); ++i)
+      primatives_idxs.push_back(i);
 
     bvh_.resize((2 * primatives_.size()) - 1); // might need to change if switching to BVH4 or BVH8
 
@@ -63,11 +62,17 @@ class BVH {
     UpdateNodeBounds(primatives_idxs, bounds_fn, &root);
     Subdivide(&primatives_idxs, centers, bounds_fn, &root);
 
-    // reorder primatives_
+    std::vector<Prim> new_primatives;
+    new_primatives.reserve(primatives_.size());
+    
+    for (std::uint32_t idx : primatives_idxs)
+      new_primatives.push_back(std::move(primatives_[idx]));
+
+    primatives_ = std::move(new_primatives);
   }
 
   const std::vector<BVHNode>& GetBVH() const { return bvh_; }
-  const std::vector<Prim>& GetPrims() const { primatives_; } 
+  const std::vector<Prim>& GetPrims() const { return primatives_; } 
  private:
   void UpdateNodeBounds(
       const std::vector<std::uint32_t>& primatives_idxs,
@@ -113,7 +118,7 @@ class BVH {
 
     std::uint32_t i = node.first_prim_index;
     std::uint32_t j = i + node.prim_count - 1;
-    while (i <= j) {
+    while (i <= j && j != 4294967295) {
       if (centers[primatives_idxs[i]][axis] < split_pos)
         i++;
       else

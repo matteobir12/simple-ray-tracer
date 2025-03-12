@@ -67,18 +67,24 @@ struct HitRecord {
 	vec3 normal;
 	float t;
 	bool frontFace;
+	vec3 test;
 };
 
-vec3 SampleSquare() {
-	return vec3(RandX - 0.5f, RandY - 0.5f, 0.0);
+vec3 SampleSquare(int rayInd) {
+	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+	int index = (coord.y * Height) + coord.x;
+	index = (index + rayInd) % (Width * Height);
+
+	vec2 samp = texelFetch(noiseTex, index).xy;
+	return vec3(samp.x - 0.5f, samp.y - 0.5f, 0.0);
 }
 
 vec3 RayAt(Ray r, float t) {
 	return r.origin + r.direction * t;
 }
 
-void SetFaceNormal(Ray r, vec3 outwardNormal, out HitRecord rec) {
-	rec.frontFace = dot(r.direction, outwardNormal) < 0;
+void SetFaceNormal(Ray ray, vec3 outwardNormal, inout HitRecord rec) {
+	rec.frontFace = dot(ray.direction, outwardNormal) < 0;
 	rec.normal = rec.frontFace ? outwardNormal : -outwardNormal;
 }
 
@@ -95,9 +101,14 @@ vec3 randomUnitVec() {
 	return normalize(rand);
 }
 
-vec3 randomOnHemisphere(vec3 normal) {
+vec3 randomOnHemisphere(vec3 normal, vec3 point) {
 	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
 	int index = (coord.y * Height) + coord.x;
+
+	float rand = randFloat(point.xy) * Width * Height;
+	int randInt = int(rand);
+	index = (index + randInt) % (Width * Height);
+
 	vec3 onSphere = texelFetch(noiseTex, index).xyz;
 	if (dot(onSphere, normal) > 0.0)
 		return onSphere;
@@ -126,7 +137,7 @@ Camera GetCamera(CameraSettings settings) {
 	camera.v = cross(camera.w, camera.u);
 
 	vec3 viewU = viewWidth * camera.u;
-	vec3 viewV = viewHeight * /*-*/camera.v;
+	vec3 viewV = viewHeight * camera.v;
 
 	camera.pixelDeltaU = viewU / float(settings.width);
 	camera.pixelDeltaV = viewV / float(camera.height);
@@ -142,10 +153,10 @@ Camera GetCamera(CameraSettings settings) {
 	return camera;
 }
 
-Ray GetRay(Camera cam, CameraSettings settings, int i, int j) {
+Ray GetRay(Camera cam, CameraSettings settings, int i, int j, int samp) {
 	Ray r;
-	vec3 offset = SampleSquare();
-	vec3 pixelSample = cam.pixel00Loc + ((i /*+ offset.x*/) * cam.pixelDeltaU) + ((j /*+ offset.y*/) * cam.pixelDeltaV);
+	vec3 offset = SampleSquare(samp);
+	vec3 pixelSample = cam.pixel00Loc + ((i + offset.x) * cam.pixelDeltaU) + ((j + offset.y) * cam.pixelDeltaV);
 
 	//vec3 rayOrigin = (settings.defocusAngle <= 0) ? cam.center : defocusDiskSample();
 	vec3 rayOrigin = cam.center;
@@ -156,11 +167,13 @@ Ray GetRay(Camera cam, CameraSettings settings, int i, int j) {
 	return r;
 }
 
-bool SphereHit(Ray r, Sphere s, float min, float max, out HitRecord rec) {
-	vec3 oc = s.pos - r.origin;
-	float a = pow(length(r.direction), 2.0);
-	float h = dot(r.direction, oc);
+bool SphereHit(Ray ray, Sphere s, float min, float max, inout HitRecord rec) {
+	vec3 oc = s.pos - ray.origin;
+	float a = pow(length(ray.direction), 2.0);
+	float h = dot(ray.direction, oc);
 	float c = pow(length(oc), 2.0) - (s.radius * s.radius);
+	//TODO remove. Just for test
+	rec.test = vec3(a, h, c);
 	float discriminant = h * h - a * c;
 
 	if (discriminant < 0.0) {
@@ -177,26 +190,31 @@ bool SphereHit(Ray r, Sphere s, float min, float max, out HitRecord rec) {
 	}
 
 	rec.t = root;
-	rec.p = RayAt(r, rec.t);
+	rec.p = RayAt(ray, rec.t);
 	vec3 outwardNormal = (rec.p - s.pos) / s.radius;
-	SetFaceNormal(r, outwardNormal, rec);
+	SetFaceNormal(ray, outwardNormal, rec);
 
 	return true;
 }
 
 HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) {
 	HitRecord rec;
-	HitRecord tempRec;
+	rec.hit = true;
+	rec.p = vec3(0.0);
+	rec.normal = vec3(0.0);
+	rec.t = 0;
+	rec.frontFace = true;
+	rec.test = vec3(0.0);
 	rec.hit = false;
+
 	float closest = max;
 
-	for (int i = SPHERE_COUNT-1; i >= 0; i--)
+	for (int i = 0; i < SPHERE_COUNT; i++)
 	{
-		if (SphereHit(ray, spheres[i], min, closest, tempRec))
+		if (SphereHit(ray, spheres[i], min, closest, rec))
 		{
 			rec.hit = true;
-			closest = tempRec.t;
-			rec = tempRec;
+			closest = rec.t;
 		}
 	}
 
@@ -207,15 +225,13 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
 	vec3 color = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
-	
+
 	float infinity = 1.0 / 0.0;
-	Ray curRay = ray;
-	int rayCount = 0;
+	float maxDepth = float(depth);
 	while (true) {
-		HitRecord rec = CheckHit(curRay, spheres, 0.001, infinity);
+		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
-			//TODO just temp for testing 
 			if (depth <= 0)
 				return vec3(0.0, 0.0, 0.0);
 
@@ -229,15 +245,18 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 			return Color(0, 0, 0);*/
 
 			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
-			vec3 direction = randomOnHemisphere(rec.normal);
+
+			vec3 direction = randomOnHemisphere(rec.normal, rec.p);
 			color *= 0.5;
 
-			curRay.direction = direction;
-			curRay.origin = rec.p;
+			ray.direction = direction;
+			ray.origin = rec.p;
 			depth--;
-			rayCount++;
 		}
 		else {
+			/*float newDepth = float(depth);
+			float depthPer = newDepth / maxDepth;
+			return vec3(depthPer, 0.0, 0.0);*/
 			break;
 		}
 	}
@@ -257,7 +276,7 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 1;
+	settings.samplesPerPixel = 20;
 	settings.maxDepth = 10;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
@@ -276,10 +295,11 @@ void main() {
 
 	for (int s = 0; s < settings.samplesPerPixel; s++)
 	{
-		Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y);
+		Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y, s);
 		pixelColor += GetRayColor(camera, ray, world, settings.maxDepth);
 	}
 
+	pixelColor *= camera.pixelSamplesScale;
 	vec4 outColor = vec4(pixelColor, 1.0);
 	imageStore(imgOutput, texelCoord, outColor);
 }

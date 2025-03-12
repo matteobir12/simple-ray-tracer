@@ -12,8 +12,6 @@ uniform int SphereCount;
 //Camera Data
 uniform int Width;
 uniform int Height;
-uniform float RandX;
-uniform float RandY;
 
 //void main() {
 //	vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
@@ -67,7 +65,6 @@ struct HitRecord {
 	vec3 normal;
 	float t;
 	bool frontFace;
-	vec3 test;
 };
 
 vec3 SampleSquare(int rayInd) {
@@ -172,8 +169,6 @@ bool SphereHit(Ray ray, Sphere s, float min, float max, inout HitRecord rec) {
 	float a = pow(length(ray.direction), 2.0);
 	float h = dot(ray.direction, oc);
 	float c = pow(length(oc), 2.0) - (s.radius * s.radius);
-	//TODO remove. Just for test
-	rec.test = vec3(a, h, c);
 	float discriminant = h * h - a * c;
 
 	if (discriminant < 0.0) {
@@ -204,7 +199,6 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	rec.normal = vec3(0.0);
 	rec.t = 0;
 	rec.frontFace = true;
-	rec.test = vec3(0.0);
 	rec.hit = false;
 
 	float closest = max;
@@ -245,7 +239,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 			return Color(0, 0, 0);*/
 
 			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
-
 			vec3 direction = randomOnHemisphere(rec.normal, rec.p);
 			color *= 0.5;
 
@@ -254,9 +247,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 			depth--;
 		}
 		else {
-			/*float newDepth = float(depth);
-			float depthPer = newDepth / maxDepth;
-			return vec3(depthPer, 0.0, 0.0);*/
 			break;
 		}
 	}

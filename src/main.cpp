@@ -383,8 +383,6 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
-        compute.SetFloat("RandX", Common::randomFloat());
-        compute.SetFloat("RandY", Common::randomFloat());
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_BUFFER, noiseTex);

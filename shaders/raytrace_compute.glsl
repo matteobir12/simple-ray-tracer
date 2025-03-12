@@ -266,7 +266,7 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 20;
+	settings.samplesPerPixel = 100;
 	settings.maxDepth = 10;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);

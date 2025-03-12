@@ -329,7 +329,7 @@ int main() { // int argc, char** argv
       RayTracer::CameraSettings settings;
       settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
       settings.width = WIDTH;
-      settings.samplesPerPixel = 1/*00*/;
+      settings.samplesPerPixel = 10;
       settings.maxDepth = 10;
 
       RayTracer::World world;

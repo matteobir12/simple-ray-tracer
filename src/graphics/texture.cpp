@@ -32,10 +32,13 @@ void Texture::Init(const std::vector<Color8>& textureData, uint width, uint heig
     {
         Color8 c = textureData[i];
         uint start = i * m_numChannels;
-        for (uint j = 0; j < m_numChannels; ++j)
+        for (uint j = 0; j < m_numChannels-1; ++j)
         {
             m_image[start + j] = c[j];
         }
+
+        //inject alpha 1
+        m_image[start + 3] = 255;
     }
 
     if (!textureData.empty()) {
@@ -44,13 +47,14 @@ void Texture::Init(const std::vector<Color8>& textureData, uint width, uint heig
     }
 }
 
-GLuint Texture::getTextureHandle()
+GLuint Texture::getTextureHandle(bool isImage /* = false */)
 {
     if (m_textureHandle == 0) {
         /*std::cout << "Texture::getTextureHandle => current context: "
           << glfwGetCurrentContext() << std::endl;*/
 
         glGenTextures(1, &m_textureHandle);
+        glActiveTexture(GL_TEXTURE0);
 
         std::cout << "Texture::getTextureHandle => glGenTextures returned: " << m_textureHandle << std::endl;
         
@@ -71,15 +75,25 @@ GLuint Texture::getTextureHandle()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, m_image);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_width, m_height, 0,
+            GL_RGBA, GL_UNSIGNED_BYTE, m_image);
+
+        if (isImage) {
+            glBindImageTexture(0, m_textureHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+            
+            err = glGetError();
+            if (err != GL_NO_ERROR) {
+                std::cerr << "OpenGL error after glBindImageTexture: " << err << std::endl;
+            }
+        }
+
 		
 		err = glGetError();
 		if (err != GL_NO_ERROR) {
 			std::cerr << "OpenGL error after glTexImage2D: " << err << std::endl;
 		}
 
-        glBindTexture(GL_TEXTURE_2D, 0);
+        //glBindTexture(GL_TEXTURE_2D, 0);
     }
     return m_textureHandle;
 }

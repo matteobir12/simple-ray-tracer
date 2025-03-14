@@ -18,14 +18,18 @@ public:
     Texture();
     ~Texture();
     void Init(const std::vector<Color8>& textureData, uint width, uint height);
-    GLuint getTextureHandle();
+    GLuint getTextureHandle(bool isImage = false);
     const byte* getImageData();
 	void debugReadTexture();
+
+    void setWidth(uint width) { m_width = width; }
+    void setHeight(uint height) { m_height = height; }
+
 private:
     uint m_width;
     uint m_height;
     byte* m_image;
     GLuint m_textureHandle; 
-    uint m_numChannels = 3;
+    uint m_numChannels = 4; // We're injecting an alpha channel
 };
 }

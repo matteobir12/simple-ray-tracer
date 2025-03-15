@@ -41,8 +41,13 @@ void RayIntersectsTri(Common::Ray& ray, const Common::Triangle& tri )
 TEST(BVHTest, Construction) {
   std::vector<Common::Triangle> triangles;
   triangles.emplace_back(glm::vec3{0, 0, 1}, glm::vec3{0, 1, 0}, glm::vec3{1, 0, 0});
-  BVH<Common::Triangle> obj{&triangles, &Common::Triangle::Centroid, &Common::Triangle::Bounds};
+  BVH<Common::Triangle> obj{triangles, Common::Triangle::Centroid, Common::Triangle::Bounds}; // temp change for constructor, previously obj{&triangles, &Common::Triangle::Centroid, &Common::Triangle::Bounds};
 }
 
 }
+}
+
+GTEST_API_ int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

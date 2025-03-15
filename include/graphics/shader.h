@@ -36,6 +36,10 @@ protected:
 	std::string m_shaderSource;
 	GLuint m_shader;
 	GLuint m_program;
+
+private:
+	std::string Parse(std::stringstream& stream, std::string relPath, uint level = 0);
+	std::string GetRelPath(std::string path);
 };
 
 class Compute : public Shader {

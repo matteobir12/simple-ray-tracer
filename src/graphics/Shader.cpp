@@ -5,6 +5,8 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <exception>
+#include <regex>
 
 namespace Graphics {
 
@@ -16,11 +18,54 @@ Shader::Shader(const char* path) {
 	std::stringstream sStream;
 	sStream << shaderStream.rdbuf();
 	shaderStream.close();
-    m_shaderSource = sStream.str();
+
+    std::string relPath = GetRelPath(path);
+    m_shaderSource = Parse(sStream, relPath);
 }
 
 Shader::~Shader() {
     glDeleteShader(m_shader);
+}
+
+std::string Shader::GetRelPath(std::string path) {
+    auto const pos = path.find_last_of('/');
+    return path.substr(0, pos + 1);
+}
+
+std::string Shader::Parse(std::stringstream& stream, std::string relPath, uint level) {
+	if (level > 32)
+		throw std::range_error("header inclusion depth limit reached, might be caused by cyclic header inclusion");
+
+	static const std::regex rex("^[ ]*#[ ]*include[ ]+[\"<](.*)[\">].*");
+	std::stringstream output;
+
+	size_t line_number = 1;
+	std::smatch matches;
+
+	std::string line;
+	while (std::getline(stream, line))
+	{
+		if (std::regex_search(line, matches, rex))
+		{
+            std::string include_file = relPath;
+            include_file += matches[1];
+			std::string include_string;
+
+			std::ifstream shaderStream;
+			shaderStream.open(include_file);
+			std::stringstream sStream;
+			sStream << shaderStream.rdbuf();
+			shaderStream.close();
+
+			output << Parse(sStream, relPath, level + 1) << std::endl;
+		}
+		else
+		{
+			output << line << std::endl;
+		}
+		++line_number;
+	}
+	return output.str();
 }
 
 void Shader::Use(){

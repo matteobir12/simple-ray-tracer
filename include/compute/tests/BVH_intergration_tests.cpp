@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "intersection_utils/bvh.h"
 #include "common/types.h"
@@ -69,7 +70,7 @@ TEST_F(IntigrationTestStruct, Test) {
     if (i % 2)
       rays.emplace_back(glm::vec3{-10.0, 3.0, 6.0}, glm::vec3{0.9838, -0.0118, 0.1787});
     else
-      rays.emplace_back(glm::vec3{-10.0, 3.0, 6.0}, glm::vec3{0., 1, 0});
+      rays.emplace_back(glm::vec3{0.0, 0.0, 0.0}, glm::vec3{0., 1, 0});
   }
 
   AssetUtils::UpdateRays(64, rays.data());
@@ -77,17 +78,37 @@ TEST_F(IntigrationTestStruct, Test) {
   // if we want 8x8 threads total we do 1 group in x and 1 group in y.
   glUseProgram(compute_prog);
   glDispatchCompute(1, 1, 1);
-  glMemoryBarrier(GL_ALL_BARRIER_BITS);
+  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   GLenum err;
   while((err = glGetError()) != GL_NO_ERROR)
     std::cerr << "OpenGL error: " << err << std::endl;
 
-  const auto hits = GetHits();
+  auto hits = GetHits();
   ASSERT_EQ(hits.size(), 64);
   // All even rays should miss and all odd should hit
-  for (std::size_t i = 0; i < hits.size(); ++i)
-    EXPECT_EQ(hits[i], i % 2);
+  for (std::size_t i = 0; i < 64; ++i)
+    EXPECT_EQ(hits[i], i % 2? 17 : std::uint32_t(-1));
+
+  glm::mat4 new_mat(3.f);
+  new_mat[0][3] = 10000;
+  new_mat[1][3] = 10000;
+  new_mat[2][3] = 10000;
+
+  AssetUtils::UpdateModelMatrix(0, new_mat);
+  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+  glDispatchCompute(1, 1, 1);
+  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+  while((err = glGetError()) != GL_NO_ERROR)
+    std::cerr << "OpenGL error: " << err << std::endl;
+
+  hits = GetHits();
+  for (std::size_t i = 0; i < 64; ++i)
+    EXPECT_EQ(hits[i], std::uint32_t(-1));
+  // for (std::size_t i = 0; i < 64; ++i)
+  //   EXPECT_EQ(hits[i], 0);
 }
 
 }

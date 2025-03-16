@@ -32,7 +32,7 @@ void RayIntersectsTri(Common::Ray& ray, const Common::Triangle& tri )
   if (v < 0 || u + v > 1)
     return;
 
-  const float t = f * glm::dot( edge_2, q );
+  const float t = f * glm::dot(edge_2, q);
   if (t > 0.0001f)
     ray.intersection_distance = std::min(ray.intersection_distance, t);
 }
@@ -41,7 +41,7 @@ void RayIntersectsTri(Common::Ray& ray, const Common::Triangle& tri )
 TEST(BVHTest, Construction) {
   std::vector<Common::Triangle> triangles;
   triangles.emplace_back(glm::vec3{0, 0, 1}, glm::vec3{0, 1, 0}, glm::vec3{1, 0, 0});
-  BVH<Common::Triangle> obj{&triangles, &Common::Triangle::Centroid, &Common::Triangle::Bounds};
+  BVH<Common::Triangle> obj{triangles, Common::Triangle::Centroid, Common::Triangle::Bounds};
 }
 
 }

@@ -1,6 +1,11 @@
 [
 {
   "directory": "/home/matteo/469/simple-ray-tracer",
+  "arguments": ["/usr/bin/gcc", "-c", "-m64", "-O0", "-std=c++17", "-Iinclude", "-DGTEST_HAS_PTHREAD=1", "-Og", "-g", "-ggdb", "-Wall", "-Wextra", "-o", "build/.objs/IntersectionUtilsTests/linux/x86_64/debug/include/intersection_utils/tests/intersection_utils_test.cpp.o", "include/intersection_utils/tests/intersection_utils_test.cpp"],
+  "file": "include/intersection_utils/tests/intersection_utils_test.cpp"
+},
+{
+  "directory": "/home/matteo/469/simple-ray-tracer",
   "arguments": ["/usr/bin/gcc", "-c", "-m64", "-O0", "-std=c++17", "-Iinclude", "-DGTEST_HAS_PTHREAD=1", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include/stb", "-isystem", "/usr/include/X11/dri", "-Og", "-g", "-ggdb", "-Wall", "-Wextra", "-o", "build/.objs/ComputeTests/linux/x86_64/debug/include/compute/tests/BVH_intergration_tests.cpp.o", "include/compute/tests/BVH_intergration_tests.cpp"],
   "file": "include/compute/tests/BVH_intergration_tests.cpp"
 },
@@ -38,6 +43,11 @@
   "directory": "/home/matteo/469/simple-ray-tracer",
   "arguments": ["/usr/bin/gcc", "-c", "-m64", "-O0", "-std=c++17", "-Iinclude", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include/stb", "-isystem", "/usr/include/X11/dri", "-Og", "-g", "-ggdb", "-Wall", "-Wextra", "-o", "build/.objs/SimpleRayTracer/linux/x86_64/debug/src/raytracer/world.cpp.o", "src/raytracer/world.cpp"],
   "file": "src/raytracer/world.cpp"
+},
+{
+  "directory": "/home/matteo/469/simple-ray-tracer",
+  "arguments": ["/usr/bin/gcc", "-c", "-m64", "-O0", "-std=c++17", "-Iinclude", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include", "-isystem", "/home/matteo/.xmake/packages/s/stb/2024.06.01/1411cb81068a4769b53cf2d71650c82b/include/stb", "-isystem", "/usr/include/X11/dri", "-Og", "-g", "-ggdb", "-Wall", "-Wextra", "-o", "build/.objs/SimpleRayTracer/linux/x86_64/debug/src/graphics/Shader.cpp.o", "src/graphics/Shader.cpp"],
+  "file": "src/graphics/Shader.cpp"
 },
 {
   "directory": "/home/matteo/469/simple-ray-tracer",

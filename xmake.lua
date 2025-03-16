@@ -33,7 +33,7 @@ target("SimpleRayTracer")
     after_build(function (target)
         if is_mode("release") then
             local output_dir = path.directory(target:targetfile())
-            local packaged_folders = {"objects"}
+            local packaged_folders = {"objects", "shaders"}
 
             for _, folder in ipairs(packaged_folders) do
                 local src = path.join(os.projectdir(), folder)
@@ -55,25 +55,26 @@ target("SimpleRayTracer")
         end
     end)
 
--- -- TESTS
--- target("IntersectionUtilsTests")
---     set_kind("binary")
---     set_languages("c++17")
+-- TESTS
+target("IntersectionUtilsTests")
+    set_kind("binary")
+    set_languages("c++17")
 
---     add_files("include/intersection_utils/tests/*.cpp")
---     add_includedirs("include")
+    add_files("include/intersection_utils/tests/*.cpp")
+    add_includedirs("include")
 
---     add_packages("gtest")
+    add_packages("gtest", "gtest_main")
 
---     if is_plat("linux") then
---       add_syslinks("pthread")
---     end
+    if is_plat("linux") then
+      add_syslinks("pthread")
+    end
 
---     if is_mode("debug") then
---         add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
---     elseif is_mode("release") then
---         add_cxxflags("-O3")
---     end
+    if is_mode("debug") then
+        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
+    elseif is_mode("release") then
+        add_cxxflags("-O3")
+    end
+
 target("ComputeTests")
     set_kind("binary")
     set_languages("c++17")

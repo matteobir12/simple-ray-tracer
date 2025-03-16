@@ -9,6 +9,8 @@ layout(local_size_x = 8, local_size_y = 8) in;
 struct BVH {
   uint first_index;
   uint count;
+  uint _pad0;
+  uint _pad1;
   mat4 frame;
 };
 
@@ -188,8 +190,7 @@ void main() {
     // transform ray into model's space
     vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
     vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
-    uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz);
+    hits[index] = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz);
     // calc new ray from bounce or exit
-    hits[index] = hit != uint(-1)? 1u : 0u;
   }
 }

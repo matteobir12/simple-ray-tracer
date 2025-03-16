@@ -11,6 +11,8 @@ namespace {
 struct GPUBVH {
   std::uint32_t first_index;
   std::uint32_t count;
+  std::uint32_t _pad0;
+  std::uint32_t _pad1;
   glm::mat4 frame = glm::mat4(1);
 };
 
@@ -170,11 +172,13 @@ void UpdateModelMatrix(const std::uint32_t index, const glm::mat4& matrix) {
   g_bvhs.at(index).frame = matrix;
 
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_ranges_SSBO);
-  glBufferData(
+  const std::size_t offset = index * sizeof(GPUBVH);
+  const std::size_t matrix_offset = offset + offsetof(GPUBVH, frame);
+  glBufferSubData(
       GL_SHADER_STORAGE_BUFFER,
-      g_bvhs.size() * sizeof(GPUBVH),
-      g_bvhs.data(),
-      GL_DYNAMIC_DRAW);
+      matrix_offset,
+      sizeof(glm::mat4),
+      &g_bvhs.at(index).frame);
 }
 
 void UpdateRays(const std::uint32_t ray_count, const Common::Ray* const ray_buffer) {

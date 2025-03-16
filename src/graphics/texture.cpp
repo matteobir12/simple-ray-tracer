@@ -54,9 +54,7 @@ GLuint Texture::getTextureHandle(bool isImage /* = false */)
           << glfwGetCurrentContext() << std::endl;*/
 
         glGenTextures(1, &m_textureHandle);
-        glActiveTexture(GL_TEXTURE0);
-
-        std::cout << "Texture::getTextureHandle => glGenTextures returned: " << m_textureHandle << std::endl;
+        glActiveTexture(GL_TEXTURE0); 
         
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {

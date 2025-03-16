@@ -1,4 +1,5 @@
 #include "raytracer/camera.h"
+#include "raytracer/light.h"
 
 namespace RayTracer {
 
@@ -55,29 +56,32 @@ Point3 Camera::defocusDiskSample() const {
 	return center + (p[0] * defocusDiskU) + (p[1] * defocusDiskV);
 }
 
-Color Camera::RayColor(const Common::Ray& r, uint depth, World& world) const {
+Color Camera::RayColor(const Common::Ray& r, uint depth, World& world, const DirectionalLight& light) const {
 	if (depth <= 0)
 		return Color(0, 0, 0);
 
 	HitRecord rec;
 	if (world.CheckHit(r, Common::Interval(0.001f, Common::infinity), rec))
 	{
-		//Common::Ray scattered;
-		//Color attenuation;
+		glm::vec3 lightDir = -light.direction;
+		float diff = glm::max(glm::dot(rec.normal, lightDir), 0.0f);
+		Color diffuse = diff * light.color;
+		// This can be modified to accomodate for different materials by calling rec.mat->... when materials are implemented into HitRecord
 
-		// This is the original correct path tracer version of this
-		// Will need to redo this once brdf is in place
-		/*if (rec.mat->Scatter(r, rec, attenuation, scattered))
-			return attenuation * RayColor(scattered, depth - 1, world);
-		return Color(0, 0, 0);*/
+		glm::vec3 viewDir = glm::normalize(-r.direction);
+		glm::vec3 reflectDir = glm::reflect(-lightDir, rec.normal);
+		float spec = glm::pow(glm::max(glm::dot(viewDir, reflectDir), 0.0f), 32);
+		Color specular = spec * light.color;
 
-		// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
+		Color ambient = 0.1f * light.color;
+		Color result = (ambient + diffuse + specular);
+
 		glm::vec3 direction = Common::randomOnHemisphere(rec.normal);
-		return 0.5f * RayColor(Common::Ray(rec.p, direction), depth - 1, world);
+		return result * RayColor(Common::Ray(rec.p, direction), depth - 1, world, light);
 	}
 
-	glm::vec3 direction = glm::normalize(r.direction);
-	auto a = 0.5f * (direction.y + 1.0f);
+	glm::vec3 unitDirection = glm::normalize(r.direction);
+	auto a = 0.5f * (unitDirection.y + 1.0f);
 	return (1.0f - a) * Color(1.0f, 1.0f, 1.0f) + a * Color(0.5f, 0.7f, 1.0f);
 }
 

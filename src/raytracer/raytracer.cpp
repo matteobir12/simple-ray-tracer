@@ -62,14 +62,14 @@ void RayTracer::Render() {
 	}
 	for (uint j = 0; j < height; ++j)
 	{
-		std::clog << "\rLines Remining: " << (height - j) << ' ' << std::flush;
+		std::clog << "\rLines Remaining: " << (height - j) << ' ' << std::flush;
 		for (uint i = 0; i < width; ++i)
 		{
 			Color pixelColor(0, 0, 0);
 			for (uint sample = 0; sample < samplesPerPixel; sample++)
 			{
 				Common::Ray r = camera.GetRay(i, j);
-				pixelColor += camera.RayColor(r, maxDepth, world);
+				pixelColor += camera.RayColor(r, maxDepth, world, light);
 			}
 			
 			if (writeTexture)

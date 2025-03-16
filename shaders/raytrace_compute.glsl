@@ -13,6 +13,10 @@ uniform int SphereCount;
 uniform int Width;
 uniform int Height;
 
+// Light Data
+uniform vec3 lightDirection;
+uniform vec3 lightColor;
+
 //void main() {
 //	vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
 //	ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
@@ -229,22 +233,24 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 			if (depth <= 0)
 				return vec3(0.0, 0.0, 0.0);
 
-			//Common::Ray scattered;
-			//Color attenuation;
+            vec3 lightDir = normalize(-lightDirection);
+            float diff = max(dot(rec.normal, lightDir), 0.0);
+            vec3 diffuse = diff * lightColor;
 
-			// This is the original correct path tracer version of this
-			// Will need to redo this once brdf is in place
-			/*if (rec.mat->Scatter(r, rec, attenuation, scattered))
-				return attenuation * RayColor(scattered, depth - 1, world);
-			return Color(0, 0, 0);*/
+            vec3 viewDir = normalize(-ray.direction);
+            vec3 reflectDir = reflect(-lightDir, rec.normal);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); 
+            vec3 specular = spec * lightColor;
 
-			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
-			vec3 direction = randomOnHemisphere(rec.normal, rec.p);
-			color *= 0.5;
+            vec3 ambient = 0.1 * lightColor; 
+            vec3 lighting = ambient + diffuse + specular;
 
-			ray.direction = direction;
-			ray.origin = rec.p;
-			depth--;
+            color = lighting * vec3(1.0, 1.0, 1.0); // assumption of white material temporarily
+
+            vec3 direction = randomOnHemisphere(rec.normal, rec.p);
+            ray.direction = direction;
+            ray.origin = rec.p;
+            depth--;
 		}
 		else {
 			break;

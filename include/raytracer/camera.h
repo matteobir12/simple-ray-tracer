@@ -7,6 +7,7 @@
 #include "common/utils.h"
 #include "raytracer_types.h"
 #include "world.h"
+#include "light.h"
 
 namespace RayTracer {
 

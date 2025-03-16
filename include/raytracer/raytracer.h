@@ -8,6 +8,7 @@
 #include "graphics/texture.h"
 #include "raytracer_types.h"
 #include "raytracer/camera.h"
+#include "raytracer/light.h"
 
 namespace RayTracer {
 
@@ -21,6 +22,7 @@ public:
 		, world()
 		, texture()
 		, writeTexture(writeTexture)
+		, light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1))
 	{}
 
 	void Init(World& w);
@@ -34,5 +36,6 @@ private:
 	World world;
 	Graphics::Texture texture;
 	bool writeTexture;
+	DirectionalLight light;
 };
 }

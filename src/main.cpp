@@ -8,12 +8,14 @@
 #include "input_handler.h"
 #include "raytracer/raytracer.h"
 #include "raytracer/world.h"
+#include "raytracer/light.h"
 #include "raytracer/raytracer_types.h"
 #include "raytracer/utils.h"
 #include "graphics/texture.h"
 #include "graphics/shader.h"
 
 #include <vector>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace
 {
@@ -334,6 +336,9 @@ int main() { // int argc, char** argv
 
       RayTracer::World world;
       SetupWorld(world);
+
+      RayTracer::DirectionalLight light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+
       RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
       raytracer.Init(world);
       raytracer.Render();
@@ -365,6 +370,7 @@ int main() { // int argc, char** argv
   }
 
   std::vector<glm::vec3> noise = RayTracer::getNoiseBuffer();
+  RayTracer::DirectionalLight light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {
@@ -383,6 +389,9 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
+
+        glUniform3fv(glGetUniformLocation(compute.GetProgram(), "lightDirection"), 1, glm::value_ptr(light.direction));
+        glUniform3fv(glGetUniformLocation(compute.GetProgram(), "lightColor"), 1, glm::value_ptr(light.color));
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_BUFFER, noiseTex);

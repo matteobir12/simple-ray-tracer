@@ -156,7 +156,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 	int lightIndex = 0;
 	vec3 throughputColor = vec3(1.0);
 	vec3 accumColor = vec3(0.0);
-	int innerLoop = 5;
 	while (true) {
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
@@ -179,14 +178,17 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 
 			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
 			float pdf;
-			vec3 direction = SampleNextRay(rec, ray, pdf);
+			bool isDiffuse;
+			vec3 direction = SampleNextRay(rec, ray, pdf, isDiffuse);
+			//return vec3(direction);
 			if (pdf == 0.0) {
 				//Just for test
 				return vec3(1.0, 0.0, 0.0);
 				break;
 			}
 
-			throughputColor *= BRDF(rec, ray.direction, direction) * abs(dot(direction, rec.normal)) / pdf;
+			throughputColor *= BRDF(rec, ray.direction, direction, isDiffuse) * abs(dot(direction, rec.normal)) / pdf;
+			//return BRDF(rec, ray.direction, direction, isDiffuse);
 			
 			ray.direction = direction;
 			ray.origin = rec.p;
@@ -196,11 +198,8 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 			if (depth <= 0) {
 				break;
 				float survivalProb = clamp(luminance(throughputColor), 0.1, 1.0);
-				return vec3(luminance(throughputColor), 0.0, 0.0);
 				if (randFloatSample(rec.p.xy) > survivalProb) break;
 				throughputColor /= survivalProb;
-				innerLoop--;
-				//if(innerLoop <= 0)
 			}
 		}
 		else {
@@ -222,12 +221,12 @@ void main() {
 
 	Material material1;
 	Material material2;
-	material1.albedo = vec3(0.9, 0.2, 0.3);
-	material1.specular = vec3(0.5, 0.2, 0.4);
-	material1.roughness = 0.1;
-	material2.albedo = vec3(1.0);// (0.6, 0.8, 0.7);
-	material2.specular = vec3(0.6);// (0.2, 0.2, 0.4);
-	material2.roughness = 0.4;
+	material1.albedo = vec3(0.3, 0.2, 0.3);
+	material1.specular = vec3(0.9, 0.8, 0.5);
+	material1.roughness = 0.05;
+	material2.albedo = vec3(0.8, 0.8, 0.8);
+	material2.specular = vec3(0.6, 0.2, 0.4);
+	material2.roughness = 0.05;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
@@ -240,8 +239,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 100;
-	settings.maxDepth = 10;
+	settings.samplesPerPixel = 200;
+	settings.maxDepth = 20;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);

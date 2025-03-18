@@ -52,7 +52,9 @@ vec3 SampleDiffuse(vec3 point, vec3 hitNorm) {
 // GGX microfacet sample
 vec3 SampleSpecular(vec3 point, float roughness, vec3 hitNorm) {
 	// Get our uniform random numbers
-	vec3 randVal = randomOnHemisphere(hitNorm, point);
+	float rand1 = randFloat(vec2(point.x, point.y));
+	float rand2 = randFloat(vec2(point.y, point.z));
+	vec2 randVal = vec2(rand1, rand2); // randomOnHemisphere(hitNorm, point);
 
 	// Get an orthonormal basis from the normal
 	vec3 B = getPerpendicularVector(hitNorm);
@@ -68,13 +70,13 @@ vec3 SampleSpecular(vec3 point, float roughness, vec3 hitNorm) {
 	return T * (sinThetaH * cos(phiH)) + B * (sinThetaH * sin(phiH)) + hitNorm * cosThetaH;
 }
 
-void GetAllBRDFValues(HitRecord hit, vec3 V, vec3 L, out float NdotL, out float NdotH, out float LdotH, out float NdotV, out float D, out float G, out vec3 F) {
+void GetAllBRDFValues(HitRecord hit, vec3 V, vec3 L, vec3 H, out float NdotL, out float NdotH, out float LdotH, out float NdotV, out float D, out float G, out vec3 F) {
 	// Compute (N dot L)
 	vec3 N = hit.normal;
 	NdotL = saturate(dot(N, L));
 
 	// Compute half vectors and additional dot products for GGX
-	vec3 H = normalize(V + L);
+	//vec3 H = normalize(V + L);
 	NdotH = saturate(dot(N, H));
 	LdotH = saturate(dot(L, H));
 	NdotV = saturate(dot(N, V));
@@ -100,7 +102,8 @@ vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	float D;
 	float G;
 	vec3 F;
-	GetAllBRDFValues(hit, V, L, NdotL, NdotH, LdotH, NdotV, D, G, F);
+	vec3 H = normalize(V + L);
+	GetAllBRDFValues(hit, V, L, H, NdotL, NdotH, LdotH, NdotV, D, G, F);
 
 	// Evaluate the Cook-Torrance Microfacet BRDF model
 	//     Cancel out NdotL here & the next eq. to avoid catastrophic numerical precision issues.
@@ -110,8 +113,8 @@ vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	return shadowMult * lightIntensity * ( /* NdotL * */ ggxTerm + NdotL * hit.mat.albedo / M_PI);
 }
 
-vec3 SampleNextRay(HitRecord rec, Ray inRay, inout float pdf) {
-	float defuseProb = probabilityToSampleDiffuse(rec.mat.albedo, rec.mat.specular);
+vec3 SampleNextRay(HitRecord rec, Ray inRay, inout float pdf, out bool isDiffuse) {
+	float diffuseProb = probabilityToSampleDiffuse(rec.mat.albedo, rec.mat.specular);
 	float rand = randFloat(rec.p.xy);// randFloatSample(inRay.direction.xy);
 	float NdotL;
 	float NdotH;
@@ -124,22 +127,24 @@ vec3 SampleNextRay(HitRecord rec, Ray inRay, inout float pdf) {
 
 	vec3 L;
 	
-	//if (rand < defuseProb) {
+	isDiffuse = false;// rand < diffuseProb;
+	if (isDiffuse) {
 		L = SampleDiffuse(rec.p, rec.normal);
-		GetAllBRDFValues(rec, -inRay.direction, L, NdotL, NdotH, LdotH, NdotV, D, G, F);
+		vec3 halfVec = normalize(inRay.direction + L);
+		GetAllBRDFValues(rec, inRay.direction, L, halfVec, NdotL, NdotH, LdotH, NdotV, D, G, F);
 		pdf = (NdotL / M_PI);
-	//}
-	//else {
-	//	vec3 halfVec = SampleSpecular(rec.p, rec.mat.roughness, rec.normal);
-	//	newDir = reflect(inRay.direction, halfVec);
-	//	GetAllBRDFValues(rec, -newDir, L, NdotL, NdotH, LdotH, NdotV, D, G, F);
-	//	pdf = D * NdotH / (4 * LdotH);
-	//}
+	}
+	else {
+		vec3 halfVec = SampleSpecular(rec.p, rec.mat.roughness, rec.normal);
+		L = reflect(inRay.direction, halfVec);
+		GetAllBRDFValues(rec, -inRay.direction, L, halfVec, NdotL, NdotH, LdotH, NdotV, D, G, F);
+		pdf = D * NdotH / (4 * LdotH);
+	}
 	
 	return L;
 }
 
-vec3 BRDF(HitRecord hit, vec3 inDir, vec3 outDir) {
+vec3 BRDF(HitRecord hit, vec3 inDir, vec3 outDir, bool isDiffuse) {
 	float NdotL;
 	float NdotH;
 	float LdotH;
@@ -147,11 +152,24 @@ vec3 BRDF(HitRecord hit, vec3 inDir, vec3 outDir) {
 	float D;
 	float G;
 	vec3 F;
-	GetAllBRDFValues(hit, inDir, outDir, NdotL, NdotH, LdotH, NdotV, D, G, F);
+	vec3 H;
+
+	if (isDiffuse) {
+		H = normalize(inDir + outDir);
+	}
+	else {
+		H = SampleSpecular(hit.p, hit.mat.roughness, hit.normal);
+	}
+	GetAllBRDFValues(hit, -inDir, outDir, H, NdotL, NdotH, LdotH, NdotV, D, G, F);
 	
 	vec3 ggxTerm = D * G * F / (4 * NdotV /* * NdotL */);
 	vec3 diffuseTerm = NdotL * hit.mat.albedo / M_PI;
-	return diffuseTerm;
+	if (isDiffuse) {
+		return diffuseTerm;
+	}
+	else {
+		return ggxTerm;
+	}
 	float diffuseProb = probabilityToSampleDiffuse(hit.mat.albedo, hit.mat.specular);
 
 	return (1.0 - diffuseProb) * ggxTerm + diffuseProb * diffuseTerm;

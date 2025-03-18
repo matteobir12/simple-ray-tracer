@@ -39,7 +39,6 @@ std::string Shader::Parse(std::stringstream& stream, std::string relPath, uint l
 	static const std::regex rex("^[ ]*#[ ]*include[ ]+[\"<](.*)[\">].*");
 	std::stringstream output;
 
-	size_t line_number = 1;
 	std::smatch matches;
 
 	std::string line;
@@ -63,7 +62,6 @@ std::string Shader::Parse(std::stringstream& stream, std::string relPath, uint l
 		{
 			output << line << std::endl;
 		}
-		++line_number;
 	}
 	return output.str();
 }
@@ -120,6 +118,7 @@ void Compute::Init() {
         glGetShaderInfoLog(m_shader, 512, nullptr, infoLog);
         std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n"
             << infoLog << std::endl;
+        std::cerr << m_shaderSource;
     }
 
     m_program = glCreateProgram();

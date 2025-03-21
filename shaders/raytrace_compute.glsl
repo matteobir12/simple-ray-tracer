@@ -1,6 +1,8 @@
 #version 450
 
 #define SPHERE_COUNT 2
+#define LIGHT_COUNT 1
+#define M_PI 3.1415926535897
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
@@ -13,105 +15,12 @@ uniform int SphereCount;
 uniform int Width;
 uniform int Height;
 
-//void main() {
-//	vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
-//	ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
-//
-//	value.x = float(texelCoord.x) / (gl_NumWorkGroups.x);
-//	value.y = float(texelCoord.y) / (gl_NumWorkGroups.y);
-//
-//	imageStore(imgOutput, texelCoord, value);
-//}
+#include <raytrace_types.glsl>
+#include <raytrace_utils.glsl>
+#include <brdf.glsl>
 
-struct CameraSettings {
-	float		aspect;
-	int			width;
-	int			samplesPerPixel;
-	int			maxDepth;
-	float		vFov;
-	vec3		origin;
-	vec3		lookAt;
-	vec3		vUp;
-	float		defocusAngle;
-	float		focusDist;
-};
 
-struct Camera {
-	uint			width;
-	uint			height;
-	float			pixelSamplesScale;
-	vec3			center;
-	vec3			pixel00Loc;
-	vec3			pixelDeltaU;
-	vec3			pixelDeltaV;
-	vec3			u, v, w; //Camera basis vectors
-	vec3			defocusDiskU;
-	vec3			defocusDiskV;
-};
-
-struct Ray {
-	vec3 origin;
-	vec3 direction;
-};
-
-struct Sphere {
-	vec3 pos;
-	float radius;
-};
-
-struct HitRecord {
-	bool hit;
-	vec3 p;
-	vec3 normal;
-	float t;
-	bool frontFace;
-};
-
-vec3 SampleSquare(int rayInd) {
-	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-	int index = (coord.y * Height) + coord.x;
-	index = (index + rayInd) % (Width * Height);
-
-	vec2 samp = texelFetch(noiseTex, index).xy;
-	return vec3(samp.x - 0.5f, samp.y - 0.5f, 0.0);
-}
-
-vec3 RayAt(Ray r, float t) {
-	return r.origin + r.direction * t;
-}
-
-void SetFaceNormal(Ray ray, vec3 outwardNormal, inout HitRecord rec) {
-	rec.frontFace = dot(ray.direction, outwardNormal) < 0;
-	rec.normal = rec.frontFace ? outwardNormal : -outwardNormal;
-}
-
-float randFloat(vec2 seed) {
-	return fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-vec3 randomUnitVec() {
-	vec2 x = vec2(float(gl_GlobalInvocationID.x), float(gl_GlobalInvocationID.y));
-	vec2 y = vec2(float(gl_GlobalInvocationID.x) * 0.25, float(gl_GlobalInvocationID.y) * 0.25);
-	vec2 z = vec2(float(gl_GlobalInvocationID.x) * 0.5, float(gl_GlobalInvocationID.y) * 0.5);
-
-	vec3 rand = vec3(randFloat(x), randFloat(y), randFloat(z));
-	return normalize(rand);
-}
-
-vec3 randomOnHemisphere(vec3 normal, vec3 point) {
-	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-	int index = (coord.y * Height) + coord.x;
-
-	float rand = randFloat(point.xy) * Width * Height;
-	int randInt = int(rand);
-	index = (index + randInt) % (Width * Height);
-
-	vec3 onSphere = texelFetch(noiseTex, index).xyz;
-	if (dot(onSphere, normal) > 0.0)
-		return onSphere;
-	else
-		return -onSphere;
-}
+//---------------------------------RayTracing---------------------------------//
 
 Camera GetCamera(CameraSettings settings) {
 	Camera camera;
@@ -186,6 +95,7 @@ bool SphereHit(Ray ray, Sphere s, float min, float max, inout HitRecord rec) {
 
 	rec.t = root;
 	rec.p = RayAt(ray, rec.t);
+	rec.mat = s.mat;
 	vec3 outwardNormal = (rec.p - s.pos) / s.radius;
 	SetFaceNormal(ray, outwardNormal, rec);
 
@@ -215,41 +125,62 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	return rec;
 }
 
-vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
+bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
+	vec3 dir = normalize(light.position - pos);
+	float max = length(light.position - pos);
+
+	Ray lightRay;
+	lightRay.origin = pos;
+	lightRay.direction = dir;
+	HitRecord rec = CheckHit(lightRay, spheres, 0.001, max);
+	return rec.hit;
+}
+
+vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_COUNT] lights, int depth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
-	vec3 color = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+	vec3 color = vec3(0.0);
 
 	float infinity = 1.0 / 0.0;
 	float maxDepth = float(depth);
+	int lightIndex = 0;
+	vec3 throughputColor = vec3(1.0);
+	vec3 accumColor = vec3(0.0);
 	while (true) {
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
-			if (depth <= 0)
-				return vec3(0.0, 0.0, 0.0);
+			Light light = lights[lightIndex];
+			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
+			color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
 
-			//Common::Ray scattered;
-			//Color attenuation;
+			float pdf;
+			bool isDiffuse;
+			vec3 direction = SampleNextRay(rec, ray, pdf, isDiffuse);
+			if (pdf == 0.0) {
+				break;
+			}
 
-			// This is the original correct path tracer version of this
-			// Will need to redo this once brdf is in place
-			/*if (rec.mat->Scatter(r, rec, attenuation, scattered))
-				return attenuation * RayColor(scattered, depth - 1, world);
-			return Color(0, 0, 0);*/
-
-			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
-			vec3 direction = randomOnHemisphere(rec.normal, rec.p);
-			color *= 0.5;
-
+			throughputColor *= BRDF(rec, ray.direction, direction, isDiffuse) * abs(dot(direction, rec.normal)) / pdf;
+			
 			ray.direction = direction;
 			ray.origin = rec.p;
 			depth--;
+			lightIndex = (lightIndex + 1) % LIGHT_COUNT;
+
+			if (depth <= 0) {
+				break;
+				float survivalProb = clamp(luminance(throughputColor), 0.1, 1.0);
+				if (randFloatSample(rec.p.xy) > survivalProb) break;
+				throughputColor /= survivalProb;
+			}
 		}
 		else {
 			break;
 		}
 	}
+
+	color += throughputColor * ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	
 	return color;
 }
@@ -257,17 +188,32 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 void main() {
 
 	// TODO move all this data to uniform buffers
+	Light lights[LIGHT_COUNT];
+	lights[0].position = vec3(1.0, 2.0, 0.0);
+	lights[0].intensity = vec3(0.9);
+
+	Material material1;
+	Material material2;
+	material1.albedo = vec3(0.3, 0.2, 0.3);
+	material1.specular = vec3(0.9, 0.8, 0.5);
+	material1.roughness = 0.05;
+	material2.albedo = vec3(0.8, 0.4, 0.2);
+	material2.specular = vec3(0.2, 0.2, 0.4);
+	material2.roughness = 0.05;
+
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
 	world[1].radius = 100.0;
+	world[1].mat = material1;
 	world[0].pos = vec3(0.0, 0.0, -1.0);
 	world[0].radius = 0.5;
+	world[0].mat = material2;
 
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 100;
-	settings.maxDepth = 10;
+	settings.samplesPerPixel = 200;
+	settings.maxDepth = 20;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);
@@ -286,7 +232,7 @@ void main() {
 	for (int s = 0; s < settings.samplesPerPixel; s++)
 	{
 		Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y, s);
-		pixelColor += GetRayColor(camera, ray, world, settings.maxDepth);
+		pixelColor += GetRayColor(camera, ray, world, lights, settings.maxDepth);
 	}
 
 	pixelColor *= camera.pixelSamplesScale;

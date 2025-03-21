@@ -272,7 +272,6 @@ int main() { // int argc, char** argv
   }
 
   glfwMakeContextCurrent(window);
-  std::cout << "Current context: " << glfwGetCurrentContext() << std::endl;
 
   if (!glfwGetCurrentContext()) {
     std::cerr << "Failed to create OpenGL context!" << std::endl;

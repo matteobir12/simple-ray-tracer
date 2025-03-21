@@ -11,7 +11,16 @@ namespace {
 struct GPUBVH {
   std::uint32_t first_index;
   std::uint32_t count;
+  std::uint32_t _pad0;
+  std::uint32_t _pad1;
   glm::mat4 frame = glm::mat4(1);
+};
+
+struct GPUBVHNode {
+  glm::vec3 min_bounds;
+  glm::vec3 max_bounds;
+  std::uint32_t first_child_or_prim_index;
+  std::uint32_t prim_count;
 };
 
 struct GPUMaterial {
@@ -31,7 +40,7 @@ struct GPUTriangle {
 // each element = 1 BVH per model
 static std::vector<GPUBVH> g_bvhs;       
 // all BVH nodes from all models
-static std::vector<IntersectionUtils::BVHNode> g_bvh_nodes;
+static std::vector<GPUBVHNode> g_bvh_nodes;
 // all materials from all models
 static std::vector<GPUMaterial> g_materials;
 // all triangles from all models
@@ -104,11 +113,13 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
     cur_triangle_off += num_BVH_tri;
 
     for (const auto& node : bvh.GetBVH()) {
-      IntersectionUtils::BVHNode gpu_node;
+      GPUBVHNode gpu_node;
       gpu_node.min_bounds = node.min_bounds;
       gpu_node.max_bounds = node.max_bounds;
-      gpu_node.first_child = node.first_child + cur_BVH_node_off;
-      gpu_node.first_prim_index = node.first_prim_index + localTriOffset;
+      gpu_node.first_child_or_prim_index =
+          node.prim_count > 0 ?
+              node.first_prim_index + localTriOffset:
+              node.first_child + cur_BVH_node_off;
       gpu_node.prim_count = node.prim_count;
       g_bvh_nodes.push_back(gpu_node);
     }
@@ -170,11 +181,13 @@ void UpdateModelMatrix(const std::uint32_t index, const glm::mat4& matrix) {
   g_bvhs.at(index).frame = matrix;
 
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_ranges_SSBO);
-  glBufferData(
+  const std::size_t offset = index * sizeof(GPUBVH);
+  const std::size_t matrix_offset = offset + offsetof(GPUBVH, frame);
+  glBufferSubData(
       GL_SHADER_STORAGE_BUFFER,
-      g_bvhs.size() * sizeof(GPUBVH),
-      g_bvhs.data(),
-      GL_DYNAMIC_DRAW);
+      matrix_offset,
+      sizeof(glm::mat4),
+      &g_bvhs.at(index).frame);
 }
 
 void UpdateRays(const std::uint32_t ray_count, const Common::Ray* const ray_buffer) {

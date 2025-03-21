@@ -1,6 +1,7 @@
 #version 450
 
 #define SPHERE_COUNT 2
+#define MAX_LIGHTS 10
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
@@ -14,8 +15,17 @@ uniform int Width;
 uniform int Height;
 
 // Light Data
-uniform vec3 lightDirection;
-uniform vec3 lightColor;
+struct Light {
+	vec3 position;
+	float pad0;
+	vec3 intensity;
+	float pad1;
+};
+
+uniform int lightCount;
+layout(std430, binding = 2) buffer lightBuffer {
+	Light lights[];
+};
 
 //void main() {
 //	vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
@@ -226,6 +236,7 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 
 	float infinity = 1.0 / 0.0;
 	float maxDepth = float(depth);
+	Light light = lights[0];
 	while (true) {
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
@@ -233,16 +244,16 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 			if (depth <= 0)
 				return vec3(0.0, 0.0, 0.0);
 
-            vec3 lightDir = normalize(-lightDirection);
+            vec3 lightDir = normalize(-light.position);
             float diff = max(dot(rec.normal, lightDir), 0.0);
-            vec3 diffuse = diff * lightColor;
+            vec3 diffuse = diff * light.intensity;
 
             vec3 viewDir = normalize(-ray.direction);
             vec3 reflectDir = reflect(-lightDir, rec.normal);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0); 
-            vec3 specular = spec * lightColor;
+            vec3 specular = spec * light.intensity;
 
-            vec3 ambient = 0.1 * lightColor; 
+            vec3 ambient = 0.1 * light.intensity;
             vec3 lighting = ambient + diffuse + specular;
 
             color = lighting * vec3(1.0, 1.0, 1.0); // assumption of white material temporarily

@@ -45,7 +45,7 @@ public:
 
 	void Initialize();
 	Common::Ray GetRay(uint i, uint j);
-	Color RayColor(const Common::Ray& r, uint depth, World& world, const DirectionalLight& light) const;
+	Color RayColor(const Common::Ray& r, uint depth, World& world, const PointLight& light) const;
 
 	inline uint getWidth() const { return width; }
 	inline uint getHeight() const { return height; }

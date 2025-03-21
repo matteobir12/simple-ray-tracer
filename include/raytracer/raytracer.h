@@ -36,6 +36,6 @@ private:
 	World world;
 	Graphics::Texture texture;
 	bool writeTexture;
-	DirectionalLight light;
+	PointLight light;
 };
 }

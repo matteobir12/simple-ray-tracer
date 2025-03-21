@@ -56,14 +56,14 @@ Point3 Camera::defocusDiskSample() const {
 	return center + (p[0] * defocusDiskU) + (p[1] * defocusDiskV);
 }
 
-Color Camera::RayColor(const Common::Ray& r, uint depth, World& world, const DirectionalLight& light) const {
+Color Camera::RayColor(const Common::Ray& r, uint depth, World& world, const PointLight& light) const {
 	if (depth <= 0)
 		return Color(0, 0, 0);
 
 	HitRecord rec;
 	if (world.CheckHit(r, Common::Interval(0.001f, Common::infinity), rec))
 	{
-		glm::vec3 lightDir = -light.direction;
+		glm::vec3 lightDir = -light.position;
 		float diff = glm::max(glm::dot(rec.normal, lightDir), 0.0f);
 		Color diffuse = diff * light.color;
 		// This can be modified to accomodate for different materials by calling rec.mat->... when materials are implemented into HitRecord

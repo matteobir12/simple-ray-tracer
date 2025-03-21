@@ -129,6 +129,7 @@ void main () {
   constexpr bool REND_TO_TEX = true;
   constexpr int HEIGHT = 800;
   constexpr int WIDTH = 1000;
+  constexpr int MAX_LIGHTS = 10;
 
   void GLAPIENTRY MessageCallback(
       GLenum /* source */,
@@ -337,7 +338,9 @@ int main() { // int argc, char** argv
       RayTracer::World world;
       SetupWorld(world);
 
-      RayTracer::DirectionalLight light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+      std::vector<RayTracer::PointLight> lights;
+      lights.reserve(MAX_LIGHTS);
+      lights.emplace_back(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
 
       RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
       raytracer.Init(world);
@@ -370,7 +373,9 @@ int main() { // int argc, char** argv
   }
 
   std::vector<glm::vec3> noise = RayTracer::getNoiseBuffer();
-  RayTracer::DirectionalLight light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+  std::vector<RayTracer::PointLight> lights;
+  lights.reserve(MAX_LIGHTS);
+  lights.emplace_back(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {
@@ -389,9 +394,13 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
+        compute.SetInt("lightCount", lights.size());
 
-        glUniform3fv(glGetUniformLocation(compute.GetProgram(), "lightDirection"), 1, glm::value_ptr(light.direction));
-        glUniform3fv(glGetUniformLocation(compute.GetProgram(), "lightColor"), 1, glm::value_ptr(light.color));
+        GLuint ssbo;
+        glGenBuffers(1, &ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo);
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_BUFFER, noiseTex);

@@ -33,18 +33,19 @@ class IntigrationTestStruct : public testing::Test  {
 
     glGenBuffers(1, &hit_buffer_);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, hit_buffer_);
-    const GLint hit_count = 64;
-    GLint hit_size = hit_count * sizeof(GLuint);
-
-    std::vector<GLuint> zero_hits(hit_count, (std::uint32_t) -1);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, hit_size, zero_hits.data(), GL_DYNAMIC_COPY);
+    ZeroHits();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, hit_buffer_);
 
     glUseProgram(compute_prog);
   }
 
+  void ZeroHits() {
+    GLint hit_size = hit_count * sizeof(GLuint);
+    std::vector<GLuint> zero_hits(hit_count, (std::uint32_t) -1);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, hit_size, zero_hits.data(), GL_DYNAMIC_COPY);
+  }
+
   std::vector<GLuint> GetHits() {
-    const GLint hit_count = 64;
     std::vector<GLuint> out(hit_count, 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, hit_buffer_);
     // glMapBufferRange also exist, but doesn't matter for test code
@@ -55,6 +56,8 @@ class IntigrationTestStruct : public testing::Test  {
 
   GLuint hit_buffer_ = 0;
   GLuint compute_prog = 0;
+  const GLint hit_count = 64;
+
 };
 
 TEST_F(IntigrationTestStruct, Test) {
@@ -90,10 +93,11 @@ TEST_F(IntigrationTestStruct, Test) {
   for (std::size_t i = 0; i < 64; ++i)
     EXPECT_EQ(hits[i], i % 2? 17 : std::uint32_t(-1));
 
-  glm::mat4 new_mat(3.f);
-  new_mat[0][3] = 10000;
-  new_mat[1][3] = 10000;
-  new_mat[2][3] = 10000;
+  ZeroHits();
+  glm::mat4 new_mat(0.000001f);
+  new_mat[0][3] = 10;
+  new_mat[1][3] = 1000;
+  new_mat[2][3] = 10;
 
   AssetUtils::UpdateModelMatrix(0, new_mat);
   glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -106,7 +110,7 @@ TEST_F(IntigrationTestStruct, Test) {
 
   hits = GetHits();
   for (std::size_t i = 0; i < 64; ++i)
-    EXPECT_EQ(hits[i], std::uint32_t(-1));
+    EXPECT_EQ(hits[i], std::uint32_t(-1)) << i;
   // for (std::size_t i = 0; i < 64; ++i)
   //   EXPECT_EQ(hits[i], 0);
 }

@@ -23,8 +23,7 @@ layout(std430, binding = 0) buffer BVHsBuffer {
 struct BVHNode {
   vec3 min_bounds;
   vec3 max_bounds;
-  uint first_child;
-  uint first_prim_index;
+  uint first_child_or_prim_index;
   uint prim_count;
 };
 
@@ -78,7 +77,7 @@ layout(std430, binding = 4) buffer VertexBuffer {
 
 struct Ray {
   vec3 origin;
-  float _pad0; // ?? Idk I've seen this around
+  float _pad0;
   vec3 direction;
   float intersection_distance;
 };
@@ -92,6 +91,7 @@ layout(std430, binding = 6) buffer HitBuffer {
   uint hits[];
 };
 
+// if we return the distance here we can short circut if we've found closer triangles
 bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_bounds) {
   vec3 inv_dir = 1.0 / ray_dir;
   vec3 t0 = (min_bounds - ray_origin) * inv_dir;
@@ -104,7 +104,7 @@ bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_boun
 }
 
 // could make branchless, but doubt it will make a large diff
-bool IntersectsTriangle(
+float IntersectsTriangle(
     vec3 ray_origin,
     vec3 ray_dir,
     vec3 v0,
@@ -115,28 +115,29 @@ bool IntersectsTriangle(
   vec3 h = cross(ray_dir, edge_2);
   float a = dot(edge_1, h);
   if (a > -0.0001f && a < 0.0001f)
-    return false; // ray parallel to triangle
+    return -1.; // ray parallel to triangle
 
   float f = 1 / a;
   vec3 s = ray_origin - v0;
   float u = f * dot(s, h);
   if (u < 0 || u > 1)
-    return false;
+    return -1.;
 
   vec3 q = cross(s, edge_1);
   float v = f * dot(ray_dir, q);
   if (v < 0 || u + v > 1)
-    return false;
+    return -1.;
 
   float t = f * dot( edge_2, q );
-  return t > 0.0001f;
+  return t;
 }
 
 // Returns index of triangle hit, or sentinal if miss (uint(-1))
-uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
+uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float intersection_distance) {
   uint stack[64];
   int stack_idx = 0;
   stack[stack_idx++] = bvh_start_index;
+  uint out_tri_indx = -1;
 
   while (stack_idx > 0) {
     uint node_idx = stack[--stack_idx];
@@ -146,31 +147,27 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir) {
       if (node.prim_count > 0) {
         // leaf node
         for (uint i = 0; i < node.prim_count; ++i) {
-          Triangle tri = triangles[node.first_prim_index + i];
+          Triangle tri = triangles[node.first_child_or_prim_index + i];
 
           vec3 v0 = vertices[tri.v0_idx].vertex;
           vec3 v1 = vertices[tri.v1_idx].vertex;
           vec3 v2 = vertices[tri.v2_idx].vertex;
 
-          if (IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2)) {
-            return node.first_prim_index + i;
+          float tri_distance = IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2);
+          if (tri_distance > 0.00001 /* eps */ && tri_distance < intersection_distance) {
+            out_tri_indx = node.first_child_or_prim_index + i;
+            intersection_distance = tri_distance;
           }
         }
       } else {
         // internal node
-        uint left_child  = node.first_child;
-        uint right_child = node.first_child + 1;
-        // if we add the child that is closer to the ray origin first we may
-        // be able to return on first triangle found, but I will still need to
-        // think on this
-        stack[stack_idx++] = left_child;
-        stack[stack_idx++] = right_child;
+        stack[stack_idx++] = node.first_child_or_prim_index;
+        stack[stack_idx++] = node.first_child_or_prim_index + 1;
       }
     }
   }
 
-  // hit nothing
-  return uint(-1);
+  return out_tri_indx;
 }
 
 void main() {
@@ -183,6 +180,7 @@ void main() {
 
   Ray ray = rays[index];
 
+  hits[index] = uint(-1); // Not necessary if we can guarentee input is uint(-1)
   // will need some sort of closest hit
   // for (every bounce)
   // for (every model in scene) or replace with a bvh traverse
@@ -190,7 +188,12 @@ void main() {
     // transform ray into model's space
     vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
     vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
-    hits[index] = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz);
+    uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz, ray.intersection_distance);
+    // rays[index].intersection_distance = ray.intersection_distance; // only necessary if we need the distance back in the buffer
+    if (hit != uint(-1)) {
+      hits[index] = hit;
+      // hits[index] = 0;
+    }
     // calc new ray from bounce or exit
   }
 }

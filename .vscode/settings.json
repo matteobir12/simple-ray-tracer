@@ -81,6 +81,7 @@
     "cfenv": "cpp",
     "__node_handle": "cpp",
     "ios": "cpp",
-    "__locale": "cpp"
+    "__locale": "cpp",
+    "regex": "cpp"
   }
 }

@@ -16,6 +16,13 @@ struct GPUBVH {
   glm::mat4 frame = glm::mat4(1);
 };
 
+struct GPUBVHNode {
+  glm::vec3 min_bounds;
+  glm::vec3 max_bounds;
+  std::uint32_t first_child_or_prim_index;
+  std::uint32_t prim_count;
+};
+
 struct GPUMaterial {
   glm::vec3 diffuse;
   glm::vec3 specular;
@@ -33,7 +40,7 @@ struct GPUTriangle {
 // each element = 1 BVH per model
 static std::vector<GPUBVH> g_bvhs;       
 // all BVH nodes from all models
-static std::vector<IntersectionUtils::BVHNode> g_bvh_nodes;
+static std::vector<GPUBVHNode> g_bvh_nodes;
 // all materials from all models
 static std::vector<GPUMaterial> g_materials;
 // all triangles from all models
@@ -106,11 +113,13 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
     cur_triangle_off += num_BVH_tri;
 
     for (const auto& node : bvh.GetBVH()) {
-      IntersectionUtils::BVHNode gpu_node;
+      GPUBVHNode gpu_node;
       gpu_node.min_bounds = node.min_bounds;
       gpu_node.max_bounds = node.max_bounds;
-      gpu_node.first_child = node.first_child + cur_BVH_node_off;
-      gpu_node.first_prim_index = node.first_prim_index + localTriOffset;
+      gpu_node.first_child_or_prim_index =
+          node.prim_count > 0 ?
+              node.first_prim_index + localTriOffset:
+              node.first_child + cur_BVH_node_off;
       gpu_node.prim_count = node.prim_count;
       g_bvh_nodes.push_back(gpu_node);
     }

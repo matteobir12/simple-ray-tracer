@@ -12,7 +12,7 @@ namespace RayTracer {
         float pad1;
     
         PointLight(const glm::vec3& position, const glm::vec3& color)
-            : position(glm::normalize(position)), color(color), pad0(0.0), pad1(0.0) {}
+            : position(position), color(color), pad0(0.0), pad1(0.0) {}
     
     };
 

@@ -2,6 +2,7 @@
 
 #define SPHERE_COUNT 2
 #define MAX_LIGHTS 10
+#define M_PI 3.1415926535897
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
@@ -14,22 +15,15 @@ uniform int SphereCount;
 uniform int Width;
 uniform int Height;
 
-// Light Data
-struct Light {
-	vec3 position;
-	float pad0;
-	vec3 intensity;
-	float pad1;
-};
+#include <raytrace_types.glsl>
+#include <raytrace_utils.glsl>
+#include <brdf.glsl>
 
+// Light Data
 uniform int lightCount;
 layout(std430, binding = 2) buffer lightBuffer {
 	Light lights[];
 };
-
-#include <raytrace_types.glsl>
-#include <raytrace_utils.glsl>
-#include <brdf.glsl>
 
 
 //---------------------------------RayTracing---------------------------------//
@@ -148,7 +142,7 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
-vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_COUNT] lights, int depth) {
+vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
 	vec3 color = vec3(0.0);
@@ -179,10 +173,9 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 			ray.direction = direction;
 			ray.origin = rec.p;
 			depth--;
-			lightIndex = (lightIndex + 1) % LIGHT_COUNT;
+			lightIndex = (lightIndex + 1) % lightCount;
 
 			if (depth <= 0) {
-				break;
 				float survivalProb = clamp(luminance(throughputColor), 0.1, 1.0);
 				if (randFloatSample(rec.p.xy) > survivalProb) break;
 				throughputColor /= survivalProb;
@@ -201,17 +194,13 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 void main() {
 
 	// TODO move all this data to uniform buffers
-	Light lights[LIGHT_COUNT];
-	lights[0].position = vec3(1.0, 2.0, 0.0);
-	lights[0].intensity = vec3(0.9);
-
 	Material material1;
 	Material material2;
-	material1.albedo = vec3(0.3, 0.2, 0.3);
-	material1.specular = vec3(0.9, 0.8, 0.5);
-	material1.roughness = 0.05;
-	material2.albedo = vec3(0.8, 0.4, 0.2);
-	material2.specular = vec3(0.2, 0.2, 0.4);
+	material1.albedo = vec3(0.1, 0.2, 0.2);
+	material1.specular = vec3(0.6, 0.8, 0.8);
+	material1.roughness = 0.1;
+	material2.albedo = vec3(0.8, 0.3, 0.3);
+	material2.specular = vec3(0.5, 0.2, 0.4);
 	material2.roughness = 0.05;
 
 	Sphere world[SPHERE_COUNT];
@@ -225,8 +214,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 200;
-	settings.maxDepth = 20;
+	settings.samplesPerPixel = 250;
+	settings.maxDepth = 30;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);
@@ -245,7 +234,7 @@ void main() {
 	for (int s = 0; s < settings.samplesPerPixel; s++)
 	{
 		Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y, s);
-		pixelColor += GetRayColor(camera, ray, world, lights, settings.maxDepth);
+		pixelColor += GetRayColor(camera, ray, world, settings.maxDepth);
 	}
 
 	pixelColor *= camera.pixelSamplesScale;

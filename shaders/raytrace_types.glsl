@@ -44,7 +44,9 @@ struct Sphere {
 
 struct Light {
 	vec3 position;
+	float pad0;
 	vec3 intensity;
+	float pad1;
 };
 
 struct HitRecord {

@@ -339,7 +339,7 @@ int main() { // int argc, char** argv
 
       std::vector<RayTracer::PointLight> lights;
       lights.reserve(MAX_LIGHTS);
-      lights.emplace_back(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1, 1, 1));
 
       RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
       raytracer.Init(world);
@@ -374,7 +374,7 @@ int main() { // int argc, char** argv
   std::vector<glm::vec3> noise = RayTracer::getNoiseBuffer();
   std::vector<RayTracer::PointLight> lights;
   lights.reserve(MAX_LIGHTS);
-  lights.emplace_back(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+  lights.emplace_back(glm::vec3(1.0, 2.0, 1.0), glm::vec3(1.0, 1.0, 1.0));
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {

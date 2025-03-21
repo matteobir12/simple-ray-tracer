@@ -19,16 +19,6 @@ uniform int Height;
 #include <raytrace_utils.glsl>
 #include <brdf.glsl>
 
-//void main() {
-//	vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
-//	ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
-//
-//	value.x = float(texelCoord.x) / (gl_NumWorkGroups.x);
-//	value.y = float(texelCoord.y) / (gl_NumWorkGroups.y);
-//
-//	imageStore(imgOutput, texelCoord, value);
-//}
-
 
 //---------------------------------RayTracing---------------------------------//
 
@@ -149,7 +139,7 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_COUNT] lights, int depth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
-	vec3 color = vec3(0.0);// = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+	vec3 color = vec3(0.0);
 
 	float infinity = 1.0 / 0.0;
 	float maxDepth = float(depth);
@@ -160,35 +150,18 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, Light[LIGHT_
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
-			//if (depth <= 0)
-			//	return vec3(0.0, 0.0, 0.0);
-
 			Light light = lights[lightIndex];
 			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
 			color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
 
-			//Common::Ray scattered;
-			//Color attenuation;
-
-			// This is the original correct path tracer version of this
-			// Will need to redo this once brdf is in place
-			/*if (rec.mat->Scatter(r, rec, attenuation, scattered))
-				return attenuation * RayColor(scattered, depth - 1, world);
-			return Color(0, 0, 0);*/
-
-			// This is basically a perfectly diffuse brdf, but doesn't divide by pi so needs to be fixed
 			float pdf;
 			bool isDiffuse;
 			vec3 direction = SampleNextRay(rec, ray, pdf, isDiffuse);
-			//return vec3(direction);
 			if (pdf == 0.0) {
-				//Just for test
-				return vec3(1.0, 0.0, 0.0);
 				break;
 			}
 
 			throughputColor *= BRDF(rec, ray.direction, direction, isDiffuse) * abs(dot(direction, rec.normal)) / pdf;
-			//return BRDF(rec, ray.direction, direction, isDiffuse);
 			
 			ray.direction = direction;
 			ray.origin = rec.p;
@@ -224,8 +197,8 @@ void main() {
 	material1.albedo = vec3(0.3, 0.2, 0.3);
 	material1.specular = vec3(0.9, 0.8, 0.5);
 	material1.roughness = 0.05;
-	material2.albedo = vec3(0.8, 0.8, 0.8);
-	material2.specular = vec3(0.6, 0.2, 0.4);
+	material2.albedo = vec3(0.8, 0.4, 0.2);
+	material2.specular = vec3(0.2, 0.2, 0.4);
 	material2.roughness = 0.05;
 
 	Sphere world[SPHERE_COUNT];

@@ -100,3 +100,12 @@ vec3 getPerpendicularVector(vec3 u) {
 	uint zm = 1 ^ (xm | ym);
 	return cross(u, vec3(xm, ym, zm));
 }
+
+SupportedMaterial OBJMatToSupported(MaterialFromOBJ in_mat) {
+  SupportedMaterial out_mat;
+  out_mat.albedo = in_mat.diffuse;
+  out_mat.specular = in_mat.specular;
+  // TEMP
+  out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);
+  return out_mat;
+}

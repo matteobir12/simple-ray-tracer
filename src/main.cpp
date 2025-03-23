@@ -13,6 +13,8 @@
 #include "raytracer/utils.h"
 #include "graphics/texture.h"
 #include "graphics/shader.h"
+#include "asset_utils/gpu_loader.h"
+#include "asset_utils/model_loader.h"
 
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
@@ -178,6 +180,11 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData) 
     /*glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
     glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);*/
+
+    std::vector<AssetUtils::Model *> models;
+    auto model = AssetUtils::LoadObject("Rubik");
+    models.push_back(model.get());
+    AssetUtils::UploadModelDataToGPU(models, 2);
 
     while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "Bind Noise Buffer: " << err << std::endl;
@@ -393,6 +400,8 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
+        compute.SetUInt("bvh_count", 1);
+
         compute.SetInt("lightCount", lights.size());
 
         GLuint ssbo;

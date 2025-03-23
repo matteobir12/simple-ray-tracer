@@ -57,7 +57,7 @@ static GLuint s_vertices_SSBO = 0;
 static GLuint s_ray_buffer = 0;
 }
 
-void UploadModelDataToGPU(const std::vector<Model*>& models) {
+void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t binding_offset) {
   g_bvhs.clear();
   g_bvh_nodes.clear();
   g_materials.clear();
@@ -170,11 +170,11 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
       GL_STATIC_DRAW);
 
   // bind them to the binding points that match the shader
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_bvh_ranges_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_bvh_nodes_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_materials_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_triangles_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_vertices_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 0, s_bvh_ranges_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 1, s_bvh_nodes_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 2, s_materials_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 3, s_triangles_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 4, s_vertices_SSBO);
 }
 
 void UpdateModelMatrix(const std::uint32_t index, const glm::mat4& matrix) {

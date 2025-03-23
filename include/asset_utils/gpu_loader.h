@@ -16,7 +16,7 @@ namespace AssetUtils {
 // gpu data.
 //
 // For now compute shader program should be bound before calling. (might change)
-void UploadModelDataToGPU(const std::vector<Model*>& models);
+void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t binding_offset = 0);
 
 // Index should be the same as the index in the vector passed to UploadModelDataToGPU
 //

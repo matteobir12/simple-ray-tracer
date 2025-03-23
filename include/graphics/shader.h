@@ -25,6 +25,7 @@ public:
 
 	void SetBool(const std::string& name, bool val);
 	void SetInt(const std::string& name, int val);
+  void SetUInt(const std::string& name, uint val);
 	void SetFloat(const std::string& name, float val);
 	void SetVec3(const std::string& name, glm::vec3 val);
 	void SetBoolArray(const std::string& name, uint count, bool* val);

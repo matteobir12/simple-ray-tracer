@@ -6,13 +6,10 @@
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
 layout(binding = 2) uniform samplerBuffer noiseUniformTex;
-
-// World Data
-uniform int SphereCount;
 
 //Camera Data
 uniform int Width;
@@ -21,6 +18,7 @@ uniform int Height;
 #include <raytrace_types.glsl>
 #include <raytrace_utils.glsl>
 #include <brdf.glsl>
+#include <ray_intersects.glsl>
 
 // Light Data
 uniform int lightCount;
@@ -120,16 +118,32 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	rec.frontFace = true;
 	rec.hit = false;
 
-	float closest = max;
-
 	for (int i = 0; i < SPHERE_COUNT; i++)
 	{
-		if (SphereHit(ray, spheres[i], min, closest, rec))
+		if (SphereHit(ray, spheres[i], min, ray.intersection_distance, rec))
 		{
 			rec.hit = true;
-			closest = rec.t;
+			ray.intersection_distance = rec.t;
 		}
 	}
+
+  for (uint i = 0; i < bvh_count; i++) {
+    // transform ray into model's space
+    vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
+    vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
+    // ray.intersection_distance is inout here, think this means it will be updated as expected
+    vec3 tri_norm;
+    uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz, ray.intersection_distance, tri_norm);
+
+    if (hit != uint(-1)) {
+      rec.hit = true;
+      // I think?
+      rec.p = (ray.intersection_distance * trans_direction.xyz) + trans_origin.xyz;
+      rec.normal = tri_norm;
+      rec.t = ray.intersection_distance;
+      rec.mat = OBJMatToSupported(materials[triangles[hit].material_idx]);
+    }
+  }
 
 	return rec;
 }
@@ -257,8 +271,8 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 void main() {
 
 	// TODO move all this data to uniform buffers
-	Material material1;
-	Material material2;
+	SupportedMaterial material1;
+	SupportedMaterial material2;
 	material1.albedo = vec3(0.2, 0.8, 0.8);
 	material1.specular = vec3(0.2, 0.4, 0.4);
 	material1.roughness = 0.01;

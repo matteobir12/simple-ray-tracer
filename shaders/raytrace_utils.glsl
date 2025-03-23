@@ -135,3 +135,12 @@ float shadowedF90(vec3 F0) {
 	const float t = (1.0f / 0.04);
 	return min(1.0f, t * luminance(F0));
 }
+
+SupportedMaterial OBJMatToSupported(MaterialFromOBJ in_mat) {
+  SupportedMaterial out_mat;
+  out_mat.albedo = in_mat.diffuse;
+  out_mat.specular = in_mat.specular;
+  // TEMP
+  out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);
+  return out_mat;
+}

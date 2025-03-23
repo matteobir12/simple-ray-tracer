@@ -70,6 +70,13 @@ vec3 SampleSpecular(vec3 point, float roughness, vec3 hitNorm) {
 	return T * (sinThetaH * cos(phiH)) + B * (sinThetaH * sin(phiH)) + hitNorm * cosThetaH;
 }
 
+float GetLightFalloff(HitRecord hit, Light light) {
+	vec3 dist = light.position - hit.p;
+	float distSquared = dot(dist, dist);
+	float falloff = 1 / ((0.01 * 0.01) + distSquared); // The 0.01 is to avoid infs when the light source is close to the shading point
+	return falloff;
+}
+
 void GetAllBRDFValues(HitRecord hit, vec3 V, vec3 L, vec3 H, out float NdotL, out float NdotH, out float LdotH, out float NdotV, out float D, out float G, out vec3 F) {
 	// Compute (N dot L)
 	vec3 N = hit.normal;
@@ -104,6 +111,8 @@ vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	vec3 F;
 	vec3 H = normalize(V + L);
 	GetAllBRDFValues(hit, V, L, H, NdotL, NdotH, LdotH, NdotV, D, G, F);
+	float falloff = GetLightFalloff(hit, light);
+	lightIntensity = lightIntensity * falloff;
 
 	// Evaluate the Cook-Torrance Microfacet BRDF model
 	// Cancel out NdotL here & the next eq. to avoid catastrophic numerical precision issues.

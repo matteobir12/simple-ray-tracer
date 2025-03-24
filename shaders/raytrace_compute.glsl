@@ -118,6 +118,7 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	rec.frontFace = true;
 	rec.hit = false;
 
+  ray.intersection_distance = max;
 	for (int i = 0; i < SPHERE_COUNT; i++)
 	{
 		if (SphereHit(ray, spheres[i], min, ray.intersection_distance, rec))

@@ -18,15 +18,15 @@ struct GPUBVH {
 
 struct GPUBVHNode {
   glm::vec3 min_bounds;
-  glm::vec3 max_bounds;
   std::uint32_t first_child_or_prim_index;
+  glm::vec3 max_bounds;
   std::uint32_t prim_count;
 };
 
 struct GPUMaterial {
   glm::vec3 diffuse;
-  glm::vec3 specular;
   float specular_ex;
+  glm::vec3 specular;
   std::uint32_t use_texture; // 0 or 1
 };
 
@@ -144,7 +144,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_nodes_SSBO);
   glBufferData(
       GL_SHADER_STORAGE_BUFFER,
-      g_bvh_nodes.size() * sizeof(IntersectionUtils::BVHNode),
+      g_bvh_nodes.size() * sizeof(GPUBVHNode),
       g_bvh_nodes.data(),
       GL_STATIC_DRAW);
 

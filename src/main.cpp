@@ -186,7 +186,7 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData, 
     std::vector<AssetUtils::Model *> models;
     auto model = AssetUtils::LoadObject("Rubik");
     models.push_back(model.get());
-    AssetUtils::UploadModelDataToGPU(models, 2);
+    AssetUtils::UploadModelDataToGPU(models, 3);
 
     while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "Bind Noise Buffer: " << err << std::endl;
@@ -423,7 +423,7 @@ int main() { // int argc, char** argv
         glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
         glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseUniformTex"), 0);
 
-        glDispatchCompute((unsigned int)WIDTH, (unsigned int)HEIGHT, 1);
+        glDispatchCompute((unsigned int)(WIDTH / 8), (unsigned int)(HEIGHT / 8), 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
     

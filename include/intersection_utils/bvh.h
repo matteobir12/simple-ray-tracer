@@ -56,6 +56,7 @@ class BVH {
       centers.emplace_back(center_fn(primative));
 
     BVHNode& root = bvh_[0];
+    next_free_node_idx_++;
     root.first_child = 0;
     root.first_prim_index = 0;
     root.prim_count = primatives_.size();
@@ -69,6 +70,8 @@ class BVH {
       new_primatives.push_back(std::move(primatives_[idx]));
 
     primatives_ = std::move(new_primatives);
+
+    bvh_.resize(next_free_node_idx_);
   }
 
   const std::vector<BVHNode>& GetBVH() const { return bvh_; }
@@ -99,8 +102,6 @@ class BVH {
       BVHNode* const node_ptr) {
     auto& primatives_idxs = *primatives_idxs_ptr;
     auto& node = *node_ptr;
-    // I'm not certain this condition is logically sound.
-    // Should probably implement something like if prim_count == prev prim_count return
     if (node.prim_count <= 2)
       return;
 
@@ -118,7 +119,7 @@ class BVH {
 
     std::uint32_t i = node.first_prim_index;
     std::uint32_t j = i + node.prim_count - 1;
-    while (i <= j && j != 4294967295) {
+    while (i <= j && j != std::uint32_t(-1)) {
       if (centers[primatives_idxs[i]][axis] < split_pos)
         i++;
       else
@@ -148,7 +149,7 @@ class BVH {
 
   std::vector<Prim> primatives_;
   std::vector<BVHNode> bvh_;
-  std::uint32_t next_free_node_idx_;
+  std::uint32_t next_free_node_idx_ = 0;
 };
 
 }

@@ -109,6 +109,7 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float
     if (IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds)) {
       if (node.prim_count > 0) {
         // leaf node
+        return (-1);
         for (uint i = 0; i < node.prim_count; ++i) {
           Triangle tri = triangles[node.first_child_or_prim_index + i];
 
@@ -116,8 +117,7 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float
           vec3 v1 = vertices[tri.v1_idx].vertex;
           vec3 v2 = vertices[tri.v2_idx].vertex;
 
-          bool tri_isects = IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2, intersection_distance, tri_norm);
-          if (tri_isects) {
+          if (IntersectsTriangle(ray_origin, ray_dir, v0, v1, v2, intersection_distance, tri_norm)) {
             out_tri_indx = node.first_child_or_prim_index + i;
           }
         }

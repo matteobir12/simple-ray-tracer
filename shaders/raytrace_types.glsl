@@ -14,8 +14,8 @@ struct SupportedMaterial {
 // For now temp sol: roughness ~ 1 / (specular_ex + eps)
 struct MaterialFromOBJ {
   vec3 diffuse;
-  vec3 specular;
   float specular_ex;
+  vec3 specular;
   uint use_texture; // bool
 };
 
@@ -33,8 +33,8 @@ struct BVH {
 // we're currently going with 2 children, so at first_child and first_child + 1
 struct BVHNode {
   vec3 min_bounds;
-  vec3 max_bounds;
   uint first_child_or_prim_index;
+  vec3 max_bounds;
   uint prim_count;
 };
 

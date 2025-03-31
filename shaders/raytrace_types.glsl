@@ -4,6 +4,7 @@ struct Material {
 	vec3 specular;
 	float roughness;
 	float metalness;
+	bool useSpec;
 };
 
 struct CameraSettings {
@@ -45,8 +46,8 @@ struct Sphere {
 
 struct Light {
 	vec3 position;
-	float pad0;
-	vec3 intensity;
+	float intensity;
+	vec3 color;
 	float pad1;
 };
 

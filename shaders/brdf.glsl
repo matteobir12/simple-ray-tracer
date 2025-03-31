@@ -202,8 +202,8 @@ BrdfData GetAllBRDFValues(vec3 N, vec3 L, vec3 V, HitRecord hit) {
 vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	// Query the scene to find info about the randomly selected light
 	vec3 L;
-	vec3 lightColor = light.intensity;
-	vec3 lightIntensity = light.intensity * 5.0;
+	vec3 lightColor = light.color;
+	float lightIntensity = light.intensity;
 	getLightData(light, hit.p, L);
 
 	float NdotL;
@@ -245,11 +245,6 @@ bool SampleIndirectNew(HitRecord hit, vec3 normal, vec3 V, Material material, in
 	if (dot(normal, V) <= 0.0f) {
 		return false;
 	}
-
-	//TODO remove this, just for testing
-	//direction = SampleDiffuse(hit.p, normal);
-	//sampleWeight = vec3(0.5);
-	//return true;
 	
 	vec3 newRayDir = vec3(0.0);
 	
@@ -285,19 +280,19 @@ bool SampleIndirectNew(HitRecord hit, vec3 normal, vec3 V, Material material, in
 }
 
 float GetBrdfProbability(Material material, vec3 V, vec3 normal) {
-	vec3 specF0 = specularF0(material.albedo, material.metalness);
+	float specF0 = luminance(specularF0(material.albedo, material.metalness));
 	float diffuseReflectance = luminance((material.albedo * (1.0 - material.metalness)));
-	float Fresnel = saturate(luminance(FresnelSchlickNew(specF0, shadowedF90(specF0), max(0.0, dot(V, normal)))));
+	float Fresnel = saturate(luminance(FresnelSchlickNew(vec3(specF0), shadowedF90(vec3(specF0)), max(0.0, dot(V, normal)))));
 
 	float specular = Fresnel;
 	float diffuse = diffuseReflectance * (1.0 - Fresnel);
-	float p = (specular / max(0.0001f, (specular + diffuse)));
+	float p = (specular / max(0.0001, (specular + diffuse)));
 	return clamp(p, 0.1f, 0.9f);
 }
 
 vec3 SampleNextRay(HitRecord rec, Ray inRay, inout float pdf, out bool isDiffuse) {
 	float diffuseProb = probabilityToSampleDiffuse(rec.mat.albedo, rec.mat.specular);
-	float rand = randFloatSampleUniform(rec.p.xy);// randFloatSample(inRay.direction.xy);
+	float rand = randFloatSampleUniform(rec.p.xy);
 	float NdotL;
 	float NdotH;
 	float LdotH;
@@ -391,8 +386,4 @@ vec3 BRDF(HitRecord hit, vec3 inDir, vec3 outDir, bool isDiffuse) {
 	else {
 		return ggxTerm;
 	}
-
-	//TODO figure out a blended BRDF if we have time
-	//float diffuseProb = probabilityToSampleDiffuse(hit.mat.albedo, hit.mat.specular);
-	//return (1.0 - diffuseProb) * ggxTerm + diffuseProb * diffuseTerm;
 }

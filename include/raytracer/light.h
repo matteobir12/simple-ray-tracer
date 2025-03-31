@@ -7,12 +7,12 @@ namespace RayTracer {
 
     struct PointLight {
         glm::vec3 position;
-        float pad0;
+        float intensity;
         glm::vec3 color;
         float pad1;
     
-        PointLight(const glm::vec3& position, const glm::vec3& color)
-            : position(position), color(color), pad0(0.0), pad1(0.0) {}
+        PointLight(const glm::vec3& position, const glm::vec3& color, float intensity)
+            : position(position), color(color), intensity(intensity), pad1(0.0) {}
     
     };
 

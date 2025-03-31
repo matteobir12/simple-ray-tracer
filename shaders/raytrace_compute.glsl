@@ -145,6 +145,32 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
+Light SampleLights(HitRecord hit, out float sampleWeight) {
+	float totalWeights = 0.0;
+	float samplePdf = 0.0;
+	Light selectedLight;
+
+	for (int i = 0; i < lightCount; i++) {
+		int randLightIndex = int(round(randFloatSampleUniform(hit.p.xy) * lightCount));
+		float lightWeight = float(lightCount);
+		Light light = lights[randLightIndex];
+		float falloff = GetLightFalloff(hit, light);
+		float intensity = light.intensity * falloff;
+
+		float lightPdf = luminance(vec3(intensity));
+		float lightRISWeight = lightPdf * lightWeight;
+		
+		totalWeights += lightRISWeight;
+		float rand = randFloatSampleUniform(vec2(hit.p.y + i, hit.p.z + i));
+		if (rand < (lightRISWeight / totalWeights)) {
+			selectedLight = light;
+			samplePdf = lightPdf;
+		}
+	}
+	sampleWeight = (totalWeights / float(lightCount)) / max(0.001, samplePdf);
+	return selectedLight;
+}
+
 vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
@@ -155,7 +181,7 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 	int randIndex = 0;
 	int depth = maxDepth;
 	
-	vec3 skyColor = ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	vec3 skyColor = vec3(0.1);// ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	vec3 throughputColor = vec3(1.0, 1.0, 1.0);
 	vec3 color = vec3(0.0, 0.0, 0.0);
 
@@ -163,22 +189,24 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
-			Light light = lights[lightIndex];
+			float lightSampleWeight;
+			Light light = SampleLights(rec, lightSampleWeight);// lights[lightIndex];
 			vec3 V = -ray.direction;
 
 			//Get Direct color
 			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
 			vec3 L;
 			getLightData(light, rec.p, L);
-			vec3 lightColor = light.intensity;
-			float falloff = GetLightFalloff(rec, light);
-			vec3 lightIntensity = light.intensity * falloff * 5.0;
-			//color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
-
-			color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
+			if (rec.mat.useSpec) {
+				color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult) * lightSampleWeight;
+			}
+			else {
+				float falloff = GetLightFalloff(rec, light);
+				vec3 lightIntensity = light.color * falloff * light.intensity * lightSampleWeight;
+				color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
+			}
 
 			int brdfType;
-			// TODO this seems broken
 			if (rec.mat.metalness == 1.0 && rec.mat.roughness == 0.0) {
 				brdfType = SPECULAR_BRDF;
 			}
@@ -188,11 +216,11 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 
 				if (rand < brdfProb) {
 					brdfType = SPECULAR_BRDF;
-					//throughputColor /= brdfProb;
+					throughputColor /= brdfProb;
 				}
 				else {
 					brdfType = DIFFUSE_BRDF;
-					//throughputColor /= (1.0 - brdfProb);
+					throughputColor /= (1.0 - brdfProb);
 				}
 			}
 
@@ -201,11 +229,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 				if (randFloatSampleUniform(vec2(rec.p.x + randIndex, rec.p.y + randIndex)) > survivalProb) break;
 				throughputColor /= survivalProb;
 				randIndex++;
-
-				// Failsafe
-				if (randIndex > 10) {
-					break;
-				}
 			}
 			else {
 				depth--;
@@ -213,23 +236,21 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 			vec3 direction;
 			vec3 brdfWeight;
 			if (!SampleIndirectNew(rec, rec.normal, V, rec.mat, brdfType, direction, brdfWeight)) {
-				continue;
+				break;
 			}
 
 			throughputColor *= brdfWeight;
-			//return throughputColor;
 			
 			ray.direction = direction;
 			ray.origin = rec.p;
 			lightIndex = (lightIndex + 1) % lightCount;
 		}
 		else {
-			color += throughputColor * skyColor;
 			break;
 		}
 	}
 	
-	//color += throughputColor * ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	color += throughputColor * skyColor;
 	return color;
 }
 
@@ -240,26 +261,28 @@ void main() {
 	Material material2;
 	material1.albedo = vec3(0.2, 0.8, 0.8);
 	material1.specular = vec3(0.2, 0.4, 0.4);
-	material1.roughness = 0.1;
-	material1.metalness = 1.0;
+	material1.roughness = 0.01;
+	material1.metalness = 0.99;
+	material1.useSpec = false;
 	material2.albedo = vec3(0.8, 0.3, 0.3);
 	material2.specular = vec3(0.9, 0.7, 0.7);
 	material2.roughness = 0.1;
-	material2.metalness = 0.8;
+	material2.metalness = 0.5;
+	material1.useSpec = true;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
 	world[1].radius = 100.0;
 	world[1].mat = material1;
-	world[0].pos = vec3(0.0, 0.0, -1.0);
+	world[0].pos = vec3(0.0, 0.0, -1.5);
 	world[0].radius = 0.5;
 	world[0].mat = material2;
 
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 200;
-	settings.maxDepth = 20;
+	settings.samplesPerPixel = 300;
+	settings.maxDepth = 50;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);

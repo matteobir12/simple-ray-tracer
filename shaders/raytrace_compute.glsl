@@ -3,10 +3,13 @@
 #define SPHERE_COUNT 2
 #define MAX_LIGHTS 10
 #define M_PI 3.1415926535897
+#define DIFFUSE_BRDF 1
+#define SPECULAR_BRDF 2
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
+layout(binding = 2) uniform samplerBuffer noiseUniformTex;
 
 // World Data
 uniform int SphereCount;
@@ -21,7 +24,7 @@ uniform int Height;
 
 // Light Data
 uniform int lightCount;
-layout(std430, binding = 2) buffer lightBuffer {
+layout(std430, binding = 3) buffer lightBuffer {
 	Light lights[];
 };
 
@@ -142,52 +145,91 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
-vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
+vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
-	vec3 color = vec3(0.0);
 
 	float infinity = 1.0 / 0.0;
-	float maxDepth = float(depth);
 	Light light = lights[0];
 	int lightIndex = 0;
-	vec3 throughputColor = vec3(1.0);
-	vec3 accumColor = vec3(0.0);
+	int randIndex = 0;
+	int depth = maxDepth;
+	
+	vec3 skyColor = ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	vec3 throughputColor = vec3(1.0, 1.0, 1.0);
+	vec3 color = vec3(0.0, 0.0, 0.0);
+
 	while (true) {
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
 			Light light = lights[lightIndex];
+			vec3 V = -ray.direction;
+
+			//Get Direct color
 			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
-			color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
+			vec3 L;
+			getLightData(light, rec.p, L);
+			vec3 lightColor = light.intensity;
+			float falloff = GetLightFalloff(rec, light);
+			vec3 lightIntensity = light.intensity * falloff * 5.0;
+			//color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
 
-			float pdf;
-			bool isDiffuse;
-			vec3 direction = SampleNextRay(rec, ray, pdf, isDiffuse);
-			if (pdf == 0.0) {
-				break;
+			color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
+
+			int brdfType;
+			// TODO this seems broken
+			if (rec.mat.metalness == 1.0 && rec.mat.roughness == 0.0) {
+				brdfType = SPECULAR_BRDF;
 			}
+			else {
+				float brdfProb = GetBrdfProbability(rec.mat, V, rec.normal);
+				float rand = randFloatSampleUniform(vec2(rec.p.x + depth, rec.p.y + depth));
 
-			throughputColor *= BRDF(rec, ray.direction, direction, isDiffuse) * abs(dot(direction, rec.normal)) / pdf;
-			
-			ray.direction = direction;
-			ray.origin = rec.p;
-			depth--;
-			lightIndex = (lightIndex + 1) % lightCount;
+				if (rand < brdfProb) {
+					brdfType = SPECULAR_BRDF;
+					//throughputColor /= brdfProb;
+				}
+				else {
+					brdfType = DIFFUSE_BRDF;
+					//throughputColor /= (1.0 - brdfProb);
+				}
+			}
 
 			if (depth <= 0) {
 				float survivalProb = clamp(luminance(throughputColor), 0.1, 1.0);
-				if (randFloatSample(rec.p.xy) > survivalProb) break;
+				if (randFloatSampleUniform(vec2(rec.p.x + randIndex, rec.p.y + randIndex)) > survivalProb) break;
 				throughputColor /= survivalProb;
+				randIndex++;
+
+				// Failsafe
+				if (randIndex > 10) {
+					break;
+				}
 			}
+			else {
+				depth--;
+			}
+			vec3 direction;
+			vec3 brdfWeight;
+			if (!SampleIndirectNew(rec, rec.normal, V, rec.mat, brdfType, direction, brdfWeight)) {
+				continue;
+			}
+
+			throughputColor *= brdfWeight;
+			//return throughputColor;
+			
+			ray.direction = direction;
+			ray.origin = rec.p;
+			lightIndex = (lightIndex + 1) % lightCount;
 		}
 		else {
+			color += throughputColor * skyColor;
 			break;
 		}
 	}
-
-	color += throughputColor * ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	
+	//color += throughputColor * ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	return color;
 }
 
@@ -196,12 +238,14 @@ void main() {
 	// TODO move all this data to uniform buffers
 	Material material1;
 	Material material2;
-	material1.albedo = vec3(0.1, 0.2, 0.2);
-	material1.specular = vec3(0.6, 0.8, 0.8);
+	material1.albedo = vec3(0.2, 0.8, 0.8);
+	material1.specular = vec3(0.2, 0.4, 0.4);
 	material1.roughness = 0.1;
+	material1.metalness = 1.0;
 	material2.albedo = vec3(0.8, 0.3, 0.3);
-	material2.specular = vec3(0.5, 0.2, 0.4);
-	material2.roughness = 0.05;
+	material2.specular = vec3(0.9, 0.7, 0.7);
+	material2.roughness = 0.1;
+	material2.metalness = 0.8;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
@@ -214,8 +258,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 250;
-	settings.maxDepth = 30;
+	settings.samplesPerPixel = 200;
+	settings.maxDepth = 20;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);

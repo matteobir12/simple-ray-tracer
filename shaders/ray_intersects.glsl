@@ -109,7 +109,7 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float
     if (IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds)) {
       if (node.prim_count > 0) {
         // leaf node
-        return (-1);
+        //return (-1);
         for (uint i = 0; i < node.prim_count; ++i) {
           Triangle tri = triangles[node.first_child_or_prim_index + i];
 

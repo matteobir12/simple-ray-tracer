@@ -127,8 +127,8 @@ void main () {
   constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
-  constexpr int HEIGHT = 800;
-  constexpr int WIDTH = 1000;
+  constexpr int HEIGHT = 500;
+  constexpr int WIDTH = 800;
   constexpr int MAX_LIGHTS = 10;
 
   void GLAPIENTRY MessageCallback(
@@ -295,27 +295,38 @@ int main() { // int argc, char** argv
   // std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << "\n";
   // std::cout << "GL_RENDERER: " << glGetString(GL_RENDERER) << "\n";
   // std::cout << "GLSL_VERSION: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
+  glDisable(GL_DEPTH_TEST);
 
-  NameMe::InputHandler i_handler(window);
-  glfwSetWindowUserPointer(window, &i_handler);
+  std::cout << "GL_RENDERER: " << glGetString(GL_RENDERER) << std::endl;
+  std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;
+  // Set up our full screen quad
+  SetupQuad();
+
+  // Define the camera
+  RayTracer::CameraSettings settings;
+  settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
+  settings.width = WIDTH;
+  settings.samplesPerPixel = 1;
+  settings.maxDepth = 2;
+
+  RayTracer::Camera camera(settings);
+  camera.Initialize();
+
+  // Set up the input handler
+  InputHandler inputHandler(window, camera);
+  glfwSetWindowUserPointer(window, &inputHandler);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   
   // Input callbacks
   glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-    auto* const handler = static_cast<NameMe::InputHandler*>(glfwGetWindowUserPointer(window));
-    handler->MouseMovement(xpos, ypos);
+    auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
+    handler->MouseCallback(window, xpos, ypos);
   });
 
   glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-    auto* const handler = static_cast<NameMe::InputHandler*>(glfwGetWindowUserPointer(window));
-    handler->OneTimeKeyPressed(key, scancode, action, mods);
+    auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
+    handler->KeyCallback(window, key, scancode, action, mods);
   });
-
-  glDisable(GL_DEPTH_TEST);
-
-  
-  // Set up our full screen quad
-  SetupQuad();
 
   Graphics::Compute compute("./shaders/raytrace_compute.glsl");
   Graphics::Texture texture;
@@ -328,11 +339,31 @@ int main() { // int argc, char** argv
   }
   // Run the Raytracer
   else if (RUN_RT) {
+      // Define the camera
       RayTracer::CameraSettings settings;
       settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
       settings.width = WIDTH;
-      settings.samplesPerPixel = 10;
-      settings.maxDepth = 10;
+      settings.samplesPerPixel = 1;
+      settings.maxDepth = 5;
+
+      RayTracer::Camera camera(settings);
+      camera.Initialize();
+
+      // Set up the input handler
+      InputHandler inputHandler(window, camera);
+      glfwSetWindowUserPointer(window, &inputHandler);
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide the cursor and capture it
+
+      // Input callbacks
+      glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+          auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
+          handler->MouseCallback(window, xpos, ypos);
+      });
+
+      glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+          auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
+          handler->KeyCallback(window, key, scancode, action, mods);
+      });
 
       RayTracer::World world;
       SetupWorld(world);
@@ -384,30 +415,45 @@ int main() { // int argc, char** argv
     while((err = glGetError()) != GL_NO_ERROR)
       std::cerr << "OpenGL error: " << err << std::endl;
 
-    i_handler.PollKeys();
+    static float lastFrameTime = 0.0f;
+    float currentFrameTime = glfwGetTime();
+    float deltaTime = currentFrameTime - lastFrameTime;
+    lastFrameTime = currentFrameTime;    
+    inputHandler.ProcessInput(deltaTime);
 
+    std::cout << "Frame Time: "  << deltaTime * 1000.0f << " ms" << std::endl;
 
+    glm::vec3 movementDelta = inputHandler.GetMovementDelta();
+    glm::vec2 rotationDelta = inputHandler.GetRotationDelta();
+
+    camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta);
 
     if (RUN_COMPUTE_RT) {
-        compute.Use();
-
-        compute.SetInt("Width", WIDTH);
-        compute.SetInt("Height", HEIGHT);
-        compute.SetInt("lightCount", lights.size());
-
-        GLuint ssbo;
-        glGenBuffers(1, &ssbo);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_STATIC_DRAW);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo);
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
-        glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);
-
-        glDispatchCompute((unsigned int)WIDTH, (unsigned int)HEIGHT, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    }
+      compute.Use();
+  
+      compute.SetVec3("cameraOrigin", camera.getOrigin());
+      compute.SetVec3("cameraDirection", camera.getForward());
+      compute.SetVec3("cameraUp", camera.getUpVector());
+      compute.SetVec3("cameraRight", camera.getRightVector());
+  
+      compute.SetInt("Width", WIDTH);
+      compute.SetInt("Height", HEIGHT);
+      compute.SetInt("lightCount", lights.size());
+  
+      GLuint ssbo;
+      glGenBuffers(1, &ssbo);
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+      glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_STATIC_DRAW);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo);
+  
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
+      glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);
+  
+      glDispatchCompute((WIDTH + 15) / 16, (HEIGHT + 15) / 16, 1);      
+      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+      glDeleteBuffers(1, &ssbo);
+  }
     
     // Render the full screen quad with the ray tracer texture
     if (rayTracerTextureHandle != 0) {
@@ -419,7 +465,10 @@ int main() { // int argc, char** argv
   }
 
   // Clean up
+  
   CleanupQuad();
+  glDeleteTextures(1, &noiseTex);
+  glDeleteBuffers(1, &noiseTBO);
   
   glfwDestroyWindow(window);
   glfwTerminate();

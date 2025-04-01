@@ -4,7 +4,7 @@
 #define MAX_LIGHTS 10
 #define M_PI 3.1415926535897
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
 
@@ -14,6 +14,11 @@ uniform int SphereCount;
 //Camera Data
 uniform int Width;
 uniform int Height;
+
+uniform vec3 cameraOrigin;
+uniform vec3 cameraDirection;
+uniform vec3 cameraUp;
+uniform vec3 cameraRight;
 
 #include <raytrace_types.glsl>
 #include <raytrace_utils.glsl>
@@ -29,40 +34,34 @@ layout(std430, binding = 2) buffer lightBuffer {
 //---------------------------------RayTracing---------------------------------//
 
 Camera GetCamera(CameraSettings settings) {
-	Camera camera;
-	camera.width = settings.width;
-	camera.height = int(settings.width / settings.aspect);
-	camera.height = (camera.height < 1) ? 1 : camera.height;
+    Camera camera;
+    camera.width = settings.width;
+    camera.height = int(settings.width / settings.aspect);
+    camera.height = (camera.height < 1) ? 1 : camera.height;
 
-	camera.pixelSamplesScale = 1.0 / settings.samplesPerPixel;
+    camera.pixelSamplesScale = 1.0 / settings.samplesPerPixel;
 
-	camera.center = settings.origin;
+    camera.center = cameraOrigin;
 
-	// Camera Values
-	float theta = radians(settings.vFov);
-	float h = tan(theta / 2.0);
-	float viewHeight = 2.0 * h * settings.focusDist;
-	float viewWidth = viewHeight * (float(settings.width) / camera.height);
+    // Use the passed camera vectors
+    camera.w = -cameraDirection;
+    camera.u = cameraRight;
+    camera.v = cameraUp;
 
-	camera.w = normalize(settings.origin - settings.lookAt);
-	camera.u = normalize(cross(settings.vUp, camera.w));
-	camera.v = cross(camera.w, camera.u);
+    vec3 viewU = camera.u * settings.focusDist;
+    vec3 viewV = camera.v * settings.focusDist;
 
-	vec3 viewU = viewWidth * camera.u;
-	vec3 viewV = viewHeight * camera.v;
+    camera.pixelDeltaU = viewU / float(settings.width);
+    camera.pixelDeltaV = viewV / float(camera.height);
 
-	camera.pixelDeltaU = viewU / float(settings.width);
-	camera.pixelDeltaV = viewV / float(camera.height);
+    vec3 viewLowerLeft = camera.center - (settings.focusDist * camera.w) - viewU / 2.0 - viewV / 2.0;
+    camera.pixel00Loc = viewLowerLeft + 0.5 * (camera.pixelDeltaU + camera.pixelDeltaV);
 
-	vec3 viewLowerLeft = camera.center - (settings.focusDist * camera.w) - viewU / 2.0 - viewV / 2.0;
-	camera.pixel00Loc = viewLowerLeft + 0.5 * (camera.pixelDeltaU + camera.pixelDeltaV);
-
-	// Camera Defocus
 	float defocusRadius = settings.focusDist = tan(radians(settings.defocusAngle / 2.0));
 	camera.defocusDiskU = camera.u * defocusRadius;
 	camera.defocusDiskV = camera.v * defocusRadius;
-
-	return camera;
+	
+    return camera;
 }
 
 Ray GetRay(Camera cam, CameraSettings settings, int i, int j, int samp) {
@@ -214,8 +213,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 250;
-	settings.maxDepth = 30;
+	settings.samplesPerPixel = 50;
+	settings.maxDepth = 10;
 	settings.vFov = 90.0;
 	settings.origin = vec3(0.0, 0.0, 0.0);
 	settings.lookAt = vec3(0.0, 0.0, -1.0);

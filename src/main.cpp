@@ -186,6 +186,8 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData, 
     std::vector<AssetUtils::Model *> models;
     auto model = AssetUtils::LoadObject("Rubik");
     models.push_back(model.get());
+    // auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+    // models.push_back(plane_model.get());
     AssetUtils::UploadModelDataToGPU(models, 3);
 
     while ((err = glGetError()) != GL_NO_ERROR)
@@ -405,7 +407,7 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
-        compute.SetUInt("bvh_count", 1);
+        compute.SetUInt("bvh_count", 1); // models in scene
 
         compute.SetInt("lightCount", lights.size());
 

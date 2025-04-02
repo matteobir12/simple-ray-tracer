@@ -1,4 +1,5 @@
 #version 450
+#extension GL_ARB_bindless_texture : require
 
 #define SPHERE_COUNT 2
 #define MAX_LIGHTS 10
@@ -17,9 +18,9 @@ uniform int Width;
 uniform int Height;
 
 #include <raytrace_types.glsl>
+#include <ray_intersects.glsl>
 #include <raytrace_utils.glsl>
 #include <brdf.glsl>
-#include <ray_intersects.glsl>
 
 // Light Data
 uniform int lightCount;
@@ -131,23 +132,24 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	  }
   }
   else {
-	for (uint i = 0; i < bvh_count; i++) {
-	  // transform ray into model's space
-		vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
-		vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
-		// ray.intersection_distance is inout here, think this means it will be updated as expected
-		vec3 tri_norm;
-		uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz, ray.intersection_distance, tri_norm);
+    for (uint i = 0; i < bvh_count; i++) {
+      // transform ray into model's space
+      vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
+      vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
+      // ray.intersection_distance is inout here, think this means it will be updated as expected
+      vec3 tri_norm;
+      uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz, ray.intersection_distance, tri_norm);
 
-		if (hit != uint(-1)) {
-		  rec.hit = true;
-		  // I think?
-		  rec.p = (ray.intersection_distance * trans_direction.xyz) + trans_origin.xyz;
-		  rec.normal = tri_norm;
-		  rec.t = ray.intersection_distance;
-		  rec.mat = OBJMatToSupported(materials[triangles[hit].material_idx]);
-		}
-	}
+      if (hit != uint(-1)) {
+        rec.hit = true;
+        // I think?
+        rec.p = (ray.intersection_distance * ray.direction) + ray.origin;
+        vec3 model_p = (ray.intersection_distance * trans_direction.xyz) + trans_origin.xyz;
+        rec.normal = tri_norm;
+        rec.t = ray.intersection_distance;
+        TriangleToSupportedMat(triangles[hit], model_p, rec.mat);
+      }
+    }
   }
 
 	return rec;
@@ -276,8 +278,8 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 void main() {
 
 	// TODO move all this data to uniform buffers
-	SupportedMaterial material1;
-	SupportedMaterial material2;
+	Material material1;
+	Material material2;
 	material1.albedo = vec3(0.2, 0.8, 0.8);
 	material1.specular = vec3(0.2, 0.4, 0.4);
 	material1.roughness = 0.01;

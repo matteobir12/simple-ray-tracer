@@ -232,7 +232,7 @@ void ParseMTL(
           TEXTURE_FOLDER +
           file_name.substr(0, file_name.size() - 4) + // remove .mtl extension
           "/" + texture_name;
-      current_material->texture = GPUTexture(tex_path);
+      current_material->texture = GPUTexture(tex_path, true);
     }
     else if (prefix == "Kd") {
       glm::vec3 d;
@@ -269,6 +269,9 @@ void ParseMTL(
     }
     else if (prefix == "Tr") {
       // ??
+    }
+    else if (prefix == "map_Ka") {
+      // a texture map that is applied to the ambient reflectivity of a material
     }
     else {
       std::cout << "Unknown material property: " << prefix << std::endl;

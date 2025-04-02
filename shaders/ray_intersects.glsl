@@ -45,8 +45,8 @@ layout(std430, binding = FIRST_BIND_POINT + 4) buffer VertexBuffer {
 // };
 // #endif
 
-// if we return the distance here we can short circut if we've found closer triangles
-bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_bounds) {
+// Returns distance to first intersection, or INF if no intersection
+float IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_bounds) {
   vec3 inv_dir = 1.0 / ray_dir;
   vec3 t0 = (min_bounds - ray_origin) * inv_dir;
   vec3 t1 = (max_bounds - ray_origin) * inv_dir;
@@ -54,7 +54,7 @@ bool IntersectsBox(vec3 ray_origin, vec3 ray_dir, vec3 min_bounds, vec3 max_boun
   vec3 t_max = max(t0, t1);
   float t_near = max(max(t_min.x, t_min.y), t_min.z);
   float t_far = min(min(t_max.x, t_max.y), t_max.z);
-  return t_near <= t_far;
+  return t_near <= t_far ? (t_near >= 0.0) ? t_near : t_far: INF;
 }
 
 // could make branchless, but doubt it will make a large diff
@@ -106,10 +106,10 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float
     uint node_idx = stack[--stack_idx];
     BVHNode node = nodes[node_idx];
 
-    if (IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds)) {
+    float box_inters_dist = IntersectsBox(ray_origin, ray_dir, node.min_bounds, node.max_bounds);
+    if (box_inters_dist < intersection_distance && !isinf(box_inters_dist)) {
       if (node.prim_count > 0) {
         // leaf node
-        //return (-1);
         for (uint i = 0; i < node.prim_count; ++i) {
           Triangle tri = triangles[node.first_child_or_prim_index + i];
 

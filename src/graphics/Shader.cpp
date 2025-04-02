@@ -123,7 +123,7 @@ void Compute::Init() {
         glGetShaderInfoLog(m_shader, 512, nullptr, infoLog);
         std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n"
             << infoLog << std::endl;
-        std::cerr << m_shaderSource;
+        std::terminate();
     }
 
     m_program = glCreateProgram();
@@ -138,6 +138,7 @@ void Compute::Init() {
         glGetProgramInfoLog(m_program, 512, nullptr, infoLog);
         std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n"
             << infoLog << std::endl;
+        std::terminate();
     }
 }
 

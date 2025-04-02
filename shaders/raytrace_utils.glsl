@@ -136,9 +136,36 @@ float shadowedF90(vec3 F0) {
 	return min(1.0f, t * luminance(F0));
 }
 
-SupportedMaterial OBJMatToSupported(MaterialFromOBJ in_mat) {
-  SupportedMaterial out_mat;
-  out_mat.albedo = in_mat.diffuse;
+//intersect_point needs to be in the same frame as the triangles (model frame)
+Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Material out_mat) {
+  MaterialFromOBJ in_mat = materials[tri.material_idx];
+
+  if (in_mat.use_texture == 0) {
+    out_mat.albedo = in_mat.diffuse;
+  } else {
+    VertexData t0 = vertices[tri.v0_idx];
+    VertexData t1 = vertices[tri.v1_idx];
+    VertexData t2 = vertices[tri.v2_idx];
+
+    vec3 v0v1 = t1.vertex - t0.vertex;
+    vec3 v0v2 = t2.vertex - t0.vertex;
+    vec3 v0p = intersect_point - t0.vertex;
+
+    float d00 = dot(v0v1, v0v1);
+    float d01 = dot(v0v1, v0v2);
+    float d11 = dot(v0v2, v0v2);
+    float d20 = dot(v0p, v0v1);
+    float d21 = dot(v0p, v0v2);
+
+    float denom = 1 / (d00 * d11 - d01 * d01);
+    float v = (d11 * d20 - d01 * d21) * denom;
+    float w = (d00 * d21 - d01 * d20) * denom;
+    float u = 1.0f - v - w;
+    vec2 texcoord = u * t0.texture + v * t1.texture + w * t2.texture;
+    sampler2D tex_sampler = sampler2D(in_mat.handle);
+    out_mat.albedo = texture(tex_sampler, texcoord).xyz;
+  }
+
   out_mat.specular = in_mat.specular;
   // TEMP
   out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);

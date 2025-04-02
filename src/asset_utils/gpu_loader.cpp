@@ -28,6 +28,7 @@ struct GPUMaterial {
   float specular_ex;
   glm::vec3 specular;
   std::uint32_t use_texture; // 0 or 1
+  GLuint64 handle; // valid only if use_texture is true
 };
 
 struct GPUTriangle {
@@ -81,6 +82,8 @@ void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t
       gpu_mat.specular = mat.specular;
       gpu_mat.specular_ex = mat.specular_ex;
       gpu_mat.use_texture = mat.use_texture;
+      if (mat.use_texture)
+        gpu_mat.handle = mat.texture.GetHandle();
 
       g_materials.push_back(gpu_mat);
     }

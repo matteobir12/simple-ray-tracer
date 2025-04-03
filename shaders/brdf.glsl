@@ -216,7 +216,7 @@ vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 
 	// Evaluate the Cook-Torrance Microfacet BRDF model
 	// Cancel out NdotL here & the next eq. to avoid catastrophic numerical precision issues.
-	vec3 ggxTerm = D * G * F / (4 * NdotV /* * NdotL */);
+	vec3 ggxTerm = D * G * F / (4 * max(0.001, NdotV) /* * NdotL */);
 
 	// Compute our final color (combining diffuse lobe plus specular GGX lobe)
 	vec3 lightTerm = shadowMult * light.color * lightIntensity;

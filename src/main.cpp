@@ -130,6 +130,7 @@ void main () {
   constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
+  constexpr bool SHOW_MODEL = true;
   constexpr int HEIGHT = 800;
   constexpr int WIDTH = 1000;
   constexpr int MAX_LIGHTS = 10;
@@ -162,9 +163,9 @@ void InitCompute(Graphics::Compute& compute) {
     std::vector<AssetUtils::Model *> models;
     auto model = AssetUtils::LoadObject("Rubik");
     models.push_back(model.get());
-    auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
-    models.push_back(plane_model.get());
-    AssetUtils::UploadModelDataToGPU(models, 4);
+    /*auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+    models.push_back(plane_model.get());*/
+    AssetUtils::UploadModelDataToGPU(models, 5);
 
     while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "Bind Noise Buffer: " << err << std::endl;
@@ -398,8 +399,18 @@ int main() { // int argc, char** argv
   int accumFrames = 0;
   std::vector<RayTracer::PointLight> lights;
   lights.reserve(MAX_LIGHTS);
-  lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 10.0f);
-  lights.emplace_back(glm::vec3(-2.5, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 3.0f);
+  if (SHOW_MODEL) {
+    lights.emplace_back(glm::vec3(1.0, 10.0, 10.0), glm::vec3(1.0, 1.0, 1.0), 50.0f);
+    lights.emplace_back(glm::vec3(-5.0, 15.0, 10.0), glm::vec3(1.0, 0.2, 0.2), 15.0f);
+    lights.emplace_back(glm::vec3(5.0, 15.0, 10.0), glm::vec3(0.2, 1.0, 0.2), 15.0f);
+    lights.emplace_back(glm::vec3(-5.0, 5.0, 10.0), glm::vec3(0.2, 0.2, 1.0), 15.0f);
+    lights.emplace_back(glm::vec3(5.0, 5.0, 10.0), glm::vec3(1.0, 1.0, 0.1), 15.0f);
+    lights.emplace_back(glm::vec3(0.0, 21.0, 17.0), glm::vec3(1.0, 1.0, 1.0), 50.0f);
+  }
+  else {
+      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 10.0f);
+      lights.emplace_back(glm::vec3(-2.5, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 3.0f);
+  }
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {

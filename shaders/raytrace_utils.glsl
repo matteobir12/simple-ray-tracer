@@ -169,6 +169,8 @@ Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Materi
   out_mat.specular = in_mat.specular;
   // TEMP
   out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);
+  out_mat.metalness = 0.1;
+  out_mat.useSpec = true;
   return out_mat;
 }
 

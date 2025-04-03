@@ -6,8 +6,8 @@
 #define M_PI 3.1415926535897
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
-#define SHOW_SPHERES true
-#define SHOW_MODELS false
+#define SHOW_SPHERES false
+#define SHOW_MODELS true
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
@@ -212,8 +212,8 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 	int depth = maxDepth;
 	
 	// Use this for dark grey
-	//vec3 skyColor = vec3(0.1);
-	vec3 skyColor = ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	vec3 skyColor = vec3(0.05);
+	//vec3 skyColor = ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	vec3 throughputColor = vec3(1.0, 1.0, 1.0);
 	vec3 color = vec3(0.0, 0.0, 0.0);
 
@@ -269,7 +269,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 				depth--;
 			}
 
-
 			vec3 direction;
 			vec3 brdfWeight;
 			if (!SampleIndirectNew(rec, rec.normal, V, rec.mat, brdfType, direction, brdfWeight)) {
@@ -304,7 +303,7 @@ void main() {
 	material2.specular = vec3(0.9, 0.7, 0.7);
 	material2.roughness = 0.1;
 	material2.metalness = 0.5;
-	material1.useSpec = true;
+	material2.useSpec = true;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
@@ -327,8 +326,8 @@ void main() {
 	}
 	else {
 		settings.samplesPerPixel = 5;
-		settings.origin = vec3(0.0, 20.0, 25.0);
-		settings.lookAt = vec3(0.0, 2.0, -1.0);
+		settings.origin = vec3(0.0, 20.0, 20.0);
+		settings.lookAt = vec3(0.0, 1.0, -1.0);
 	}
 	settings.vUp = vec3(0.0, 1.0, 0.0);
 	settings.defocusAngle = 0.0;
@@ -349,6 +348,11 @@ void main() {
 	vec3 prevColor = imageLoad(accumBuffer, texelCoord).xyz;
 	vec3 accumColor = prevColor + pixelColor;
 	imageStore(accumBuffer, texelCoord, vec4(accumColor, 1.0));
-	vec4 outColor = vec4(/*linearToSrgb*/(accumColor / accumFrames), 1.0);
+
+	if (isnan(pixelColor.x) || isnan(pixelColor.y) || isnan(pixelColor.z)) {
+		pixelColor = vec3(0.0, 1.0, 0.0);
+	}
+
+	vec4 outColor = vec4(linearToSrgb(accumColor / accumFrames)/*pixelColor*/, 1.0);
 	imageStore(imgOutput, texelCoord, outColor);
 }

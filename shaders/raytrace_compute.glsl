@@ -6,17 +6,21 @@
 #define M_PI 3.1415926535897
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
-#define SHOW_SPHERES true
-#define SHOW_MODELS false
+#define SHOW_SPHERES false
+#define SHOW_MODELS true
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
 layout(binding = 2) uniform samplerBuffer noiseUniformTex;
+layout(rgba32f, binding = 3) uniform image2D accumBuffer;
 
 //Camera Data
 uniform int Width;
 uniform int Height;
+
+// Accumulation Data
+uniform int accumFrames;
 
 uniform vec3 cameraOrigin;
 uniform vec3 cameraDirection;
@@ -30,7 +34,7 @@ uniform vec3 cameraRight;
 
 // Light Data
 uniform int lightCount;
-layout(std430, binding = 3) buffer lightBuffer {
+layout(std430, binding = 4) buffer lightBuffer {
 	Light lights[];
 };
 
@@ -167,10 +171,11 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
-Light SampleLights(HitRecord hit, out float sampleWeight) {
+bool SampleLights(HitRecord hit, out float sampleWeight, out Light selectedLight) {
 	float totalWeights = 0.0;
 	float samplePdf = 0.0;
-	Light selectedLight;
+	Light sLight;
+	bool selected = false;
 
 	for (int i = 0; i < lightCount; i++) {
 		int randLightIndex = int(round(randFloatSampleUniform(hit.p.xy) * lightCount));
@@ -185,12 +190,14 @@ Light SampleLights(HitRecord hit, out float sampleWeight) {
 		totalWeights += lightRISWeight;
 		float rand = randFloatSampleUniform(vec2(hit.p.y + i, hit.p.z + i));
 		if (rand < (lightRISWeight / totalWeights)) {
-			selectedLight = light;
+			sLight = light;
 			samplePdf = lightPdf;
+			selected = true;
 		}
 	}
 	sampleWeight = (totalWeights / float(lightCount)) / max(0.001, samplePdf);
-	return selectedLight;
+	selectedLight = sLight;
+	return selected;
 }
 
 vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth) {
@@ -203,7 +210,9 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 	int randIndex = 0;
 	int depth = maxDepth;
 	
-	vec3 skyColor = vec3(0.1);// ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	// Use this for dark grey
+	vec3 skyColor = vec3(0.05);
+	//vec3 skyColor = ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	vec3 throughputColor = vec3(1.0, 1.0, 1.0);
 	vec3 color = vec3(0.0, 0.0, 0.0);
 
@@ -212,20 +221,23 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 		if (rec.hit)
 		{
 			float lightSampleWeight;
-			Light light = SampleLights(rec, lightSampleWeight);// lights[lightIndex];
+			Light light;
+			bool sampledLight = SampleLights(rec, lightSampleWeight, light);
 			vec3 V = -ray.direction;
 
-			//Get Direct color
-			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
-			vec3 L;
-			getLightData(light, rec.p, L);
-			if (rec.mat.useSpec) {
-				color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult) * lightSampleWeight;
-			}
-			else {
-				float falloff = GetLightFalloff(rec, light);
-				vec3 lightIntensity = light.color * falloff * light.intensity * lightSampleWeight;
-				color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
+			if (sampledLight) {
+				//Get Direct color
+				float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
+				vec3 L = getLightData(light, rec.p);
+
+				if (rec.mat.useSpec) {
+					color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult) * lightSampleWeight;
+				}
+				else {
+					float falloff = GetLightFalloff(rec, light);
+					vec3 lightIntensity = light.color * falloff * light.intensity * lightSampleWeight;
+					color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
+				}
 			}
 
 			int brdfType;
@@ -255,6 +267,7 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 			else {
 				depth--;
 			}
+
 			vec3 direction;
 			vec3 brdfWeight;
 			if (!SampleIndirectNew(rec, rec.normal, V, rec.mat, brdfType, direction, brdfWeight)) {
@@ -265,7 +278,6 @@ vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth
 			
 			ray.direction = direction;
 			ray.origin = rec.p;
-			lightIndex = (lightIndex + 1) % lightCount;
 		}
 		else {
 			break;
@@ -290,7 +302,7 @@ void main() {
 	material2.specular = vec3(0.9, 0.7, 0.7);
 	material2.roughness = 0.1;
 	material2.metalness = 0.5;
-	material1.useSpec = true;
+	material2.useSpec = true;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
@@ -303,8 +315,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 300;
-	settings.maxDepth = 50;
+	settings.samplesPerPixel = 1; // DON'T USE THIS!!
+	settings.maxDepth = 5;
 	settings.vFov = 90.0;
 	if (!SHOW_MODELS) {
 		settings.samplesPerPixel = 100;
@@ -313,8 +325,8 @@ void main() {
 	}
 	else {
 		settings.samplesPerPixel = 5;
-		settings.origin = vec3(0.0, 20.0, 25.0);
-		settings.lookAt = vec3(0.0, 2.0, -1.0);
+		settings.origin = vec3(0.0, 20.0, 20.0);
+		settings.lookAt = vec3(0.0, 1.0, -1.0);
 	}
 	settings.vUp = vec3(0.0, 1.0, 0.0);
 	settings.defocusAngle = 0.0;
@@ -328,13 +340,18 @@ void main() {
 	value.y = float(texelCoord.y) / (gl_NumWorkGroups.y);
 	vec3 pixelColor = vec3(0.0, 0.0, 0.0);
 
-	for (int s = 0; s < settings.samplesPerPixel; s++)
-	{
-		Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y, s);
-		pixelColor += GetRayColor(camera, ray, world, settings.maxDepth);
+	int samp = accumFrames % (Width * Height);
+	Ray ray = GetRay(camera, settings, texelCoord.x, texelCoord.y, samp);
+	pixelColor += GetRayColor(camera, ray, world, settings.maxDepth);
+
+	vec3 prevColor = imageLoad(accumBuffer, texelCoord).xyz;
+	vec3 accumColor = prevColor + pixelColor;
+	imageStore(accumBuffer, texelCoord, vec4(accumColor, 1.0));
+
+	if (isnan(pixelColor.x) || isnan(pixelColor.y) || isnan(pixelColor.z)) {
+		pixelColor = vec3(0.0, 1.0, 0.0);
 	}
 
-	pixelColor *= camera.pixelSamplesScale;
-	vec4 outColor = vec4(pixelColor, 1.0);
+	vec4 outColor = vec4(linearToSrgb(accumColor / accumFrames)/*pixelColor*/, 1.0);
 	imageStore(imgOutput, texelCoord, outColor);
 }

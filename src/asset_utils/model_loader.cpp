@@ -240,13 +240,13 @@ void ParseMTL(
       current_material->diffuse = d;
     }
     else if (prefix == "Ka") {
-      // Ambient reflectivity (ignored or stored if needed)
+      // Ambient reflectivity
     }
     else if (prefix == "Tf") {
-      // Transmission filter (ignored or stored if needed)
+      // Transmission filter
     }
     else if (prefix == "Ni") {
-      // Index of refraction (ignored or stored if needed)
+      // Index of refraction
     }
     else if (prefix == "Ks") {
       glm::vec3 s;
@@ -259,7 +259,7 @@ void ParseMTL(
       current_material->specular_ex = e;
     }
     else if (prefix == "Ke") {
-      // emissive (ignored or stored if needed)
+      // emissive
     }
     else if (prefix == "d") {
       // ??

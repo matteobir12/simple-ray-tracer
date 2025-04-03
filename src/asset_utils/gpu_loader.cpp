@@ -27,8 +27,10 @@ struct GPUMaterial {
   glm::vec3 diffuse;
   float specular_ex;
   glm::vec3 specular;
-  std::uint32_t use_texture; // 0 or 1
+  std::uint32_t use_texture = 0; // 0 or 1
   GLuint64 handle; // valid only if use_texture is true
+  std::uint32_t _pad0;
+  std::uint32_t _pad1;
 };
 
 struct GPUTriangle {

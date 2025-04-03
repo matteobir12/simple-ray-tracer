@@ -188,7 +188,7 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData, 
     models.push_back(model.get());
     // auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
     // models.push_back(plane_model.get());
-    AssetUtils::UploadModelDataToGPU(models, 3);
+    AssetUtils::UploadModelDataToGPU(models, 4);
 
     while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "Bind Noise Buffer: " << err << std::endl;

@@ -1,4 +1,4 @@
-#define FIRST_BIND_POINT 3
+#define FIRST_BIND_POINT 4
 
 // Look into these sizes
 // #ifdef COMPUTE_TEST

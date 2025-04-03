@@ -1,4 +1,3 @@
-
 #define NAN uintBitsToFloat(0x7fc00000)
 #define INF uintBitsToFloat(0x7f800000)
 
@@ -23,6 +22,8 @@ struct MaterialFromOBJ {
   vec3 specular;
   uint use_texture; // bool
   uvec2 handle;
+  uint _pad0;
+  uint _pad1;
 };
 
 // describes the start and len of each BVH in the BVHNodeBuffer

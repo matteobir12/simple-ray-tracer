@@ -88,20 +88,20 @@ vec3 randomOnHemisphere(vec3 normal, vec3 point) {
 		return -onSphere;
 }
 
-vec3 GetCosHemisphereSample(vec3 hitNorm, vec3 point) {
-	// Get 2 random numbers to select our sample with
-	vec3 rand = randomOnHemisphere(hitNorm, point);
-
-	// Cosine weighted hemisphere
-	vec3 up = vec3(0.0, 1.0, 0.0);
-	vec3 bitangent = cross(hitNorm, up);
-	vec3 tangent = cross(bitangent, hitNorm);
-	float r = sqrt(rand.x);
-	float phi = 2.0f * 3.14159265f * rand.y;
-
-	// Get our cosine-weighted hemisphere lobe sample direction
-	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(1 - rand.x);
-}
+//vec3 GetCosHemisphereSample(vec3 hitNorm, vec3 point) {
+//	// Get 2 random numbers to select our sample with
+//	vec3 rand = randomOnHemisphere(hitNorm, point);
+//
+//	// Cosine weighted hemisphere
+//	vec3 up = vec3(0.0, 1.0, 0.0);
+//	vec3 bitangent = cross(hitNorm, up);
+//	vec3 tangent = cross(bitangent, hitNorm);
+//	float r = sqrt(rand.x);
+//	float phi = 2.0f * 3.14159265f * rand.y;
+//
+//	// Get our cosine-weighted hemisphere lobe sample direction
+//	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(1 - rand.x);
+//}
 
 /** Returns a relative luminance of an input linear RGB color in the ITU-R BT.709 color space */
 float luminance(vec3 rgb) {
@@ -170,4 +170,13 @@ Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Materi
   // TEMP
   out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);
   return out_mat;
+}
+
+float linearToSrgb(float linearColor) {
+	if (linearColor < 0.0031308) return linearColor * 12.92;
+	else return 1.055 * float(pow(linearColor, 1.0 / 2.4)) - 0.055;
+}
+
+vec3 linearToSrgb(vec3 linearColor) {
+	return vec3(linearToSrgb(linearColor.x), linearToSrgb(linearColor.y), linearToSrgb(linearColor.z));
 }

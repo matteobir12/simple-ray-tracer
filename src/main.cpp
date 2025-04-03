@@ -462,11 +462,19 @@ int main() { // int argc, char** argv
     glm::vec3 movementDelta = inputHandler.GetMovementDelta();
     glm::vec2 rotationDelta = inputHandler.GetRotationDelta();
 
+    bool resetBuffer = false;
+    if (glm::length(movementDelta) > 0.0f || glm::length(rotationDelta) > 0.0f) {
+        resetBuffer = true;
+        accumFrames = 0; 
+    }
+
+    compute.SetBool("resetAccumBuffer", resetBuffer);
     camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta);
 
     if (RUN_COMPUTE_RT) {
       compute.Use();
   
+      compute.SetBool("resetAccumBuffer", resetBuffer);
       compute.SetVec3("cameraOrigin", camera.getOrigin());
       compute.SetVec3("cameraDirection", camera.getForward());
       compute.SetVec3("cameraUp", camera.getUpVector());

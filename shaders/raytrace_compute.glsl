@@ -21,6 +21,7 @@ uniform int Height;
 
 // Accumulation Data
 uniform int accumFrames;
+uniform bool resetAccumBuffer;
 
 uniform vec3 cameraOrigin;
 uniform vec3 cameraDirection;
@@ -335,6 +336,12 @@ void main() {
 	Camera camera = GetCamera(settings);
 
 	ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+
+	if (resetAccumBuffer) {
+		imageStore(accumBuffer, texelCoord, vec4(0.0, 0.0, 0.0, 1.0));
+		return;
+	}
+
 	vec3 value = vec3(0.0, 0.0, 0.0);
 	value.x = float(texelCoord.x) / (gl_NumWorkGroups.x);
 	value.y = float(texelCoord.y) / (gl_NumWorkGroups.y);

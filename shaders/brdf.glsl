@@ -1,7 +1,7 @@
 
-void getLightData(Light light, vec3 hitPos, out vec3 toLight) {
+vec3 getLightData(Light light, vec3 hitPos) {
 	vec3 lightDist = light.position - hitPos;
-	toLight = normalize(lightDist);
+	return length(lightDist) > 0 ? normalize(lightDist) : lightDist;
 }
 
 float ggxNormalDistribution(float NdotH, float roughness) {
@@ -12,7 +12,7 @@ float ggxNormalDistribution(float NdotH, float roughness) {
 
 float ggxNormalDistributionNew(float NdotH, float alphaSquared) {
 	float b = ((alphaSquared - 1.0f) * NdotH * NdotH + 1.0f);
-	return alphaSquared / (M_PI * b * b);
+	return alphaSquared / max(0.001, (M_PI * b * b));
 }
 
 // This from Schlick 1994, modified as per Karas in SIGGRAPH 2013 "Physically Based Shading" course
@@ -21,16 +21,16 @@ float ggxSchlickMaskingTerm(float NdotL, float NdotV, float roughness) {
 	float k = roughness * roughness / 2;
 
 	// Compute G(v) and G(l).  These equations directly from Schlick 1994
-	float g_v = NdotV / (NdotV * (1 - k) + k);
-	float g_l = NdotL / (NdotL * (1 - k) + k);
+	float g_v = NdotV / max(0.001, (NdotV * (1 - k) + k));
+	float g_l = NdotL / max(0.001, (NdotL * (1 - k) + k));
 
 	// Return G(v) * G(l)
-	return g_v * g_l;
+	return abs(g_v * g_l);
 }
 
 // Traditional Schlick approximation to the Fresnel term (also from Schlick 1994)
 vec3 schlickFresnel(vec3 f0, float u) {
-	return f0 + (vec3(1.0f, 1.0f, 1.0f) - f0) * pow(1.0f - u, 5.0f);
+	return f0 + (vec3(1.0f, 1.0f, 1.0f) - f0) * pow(max(0.001, 1.0f - u), 5.0f);
 }
 
 vec3 FresnelSchlickNew(vec3 f0, float f90, float NdotS) {
@@ -42,7 +42,7 @@ float SmithGAlpha(float alpha, float NdotS) {
 }
 
 float SmithGLambdaGGX(float a) {
-	return (-1.0 + sqrt(1.0 + (1.0 / (a * a)))) * 0.5;
+	return (-1.0 + sqrt(1.0 + (1.0 / max(0.001, a * a)))) * 0.5;
 }
 
 //float Smith_G2_Height_Correlated_GGX_Lagarde(float alphaSquared, float NdotL, float NdotV) {
@@ -67,11 +67,11 @@ vec3 SampleDiffuse(vec3 point, vec3 hitNorm) {
 	// Cosine weighted hemisphere sample from RNG
 	vec3 bitangent = getPerpendicularVector(hitNorm);
 	vec3 tangent = cross(bitangent, hitNorm);
-	float r = sqrt(r1);
+	float r = sqrt(abs(r1));
 	float phi = 2.0f * M_PI * r2;
 
 	// Get our cosine-weighted hemisphere lobe sample direction
-	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(1 - r1);
+	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(abs(1 - r1));
 }
 
 float SpecularSampleWeight(float alpha, float alphaSquared, float NdotS, float NdotSSquared) {
@@ -100,7 +100,7 @@ vec3 SampleSpecularHalfVec(vec3 point, float roughness, vec3 hitNorm) {
 }
 
 vec3 SampleSpecularMicrofacet(HitRecord hit, vec3 V, float alpha, float alphaSquared, vec3 specularF0, out vec3 weight) {
-
+	
 	// Sample a microfacet normal (H)
 	vec3 H;
 	if (alpha == 0.0f) {
@@ -192,19 +192,15 @@ BrdfData GetAllBRDFValues(vec3 N, vec3 L, vec3 V, HitRecord hit) {
 	data.alpha = hit.mat.roughness * hit.mat.roughness;
 	data.alphaSquared = data.alpha * data.alpha;
 
-	// TODO if this doesn't work try using the values from the website like this
 	data.F = FresnelSchlickNew(data.specularF0, shadowedF90(data.specularF0), data.LdotH);
-	//data.F = schlickFresnel(hit.mat.specular, data.LdotH);
 
 	return data;
 }
 
 vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	// Query the scene to find info about the randomly selected light
-	vec3 L;
 	vec3 lightColor = light.color;
-	float lightIntensity = light.intensity;
-	getLightData(light, hit.p, L);
+	vec3 L = getLightData(light, hit.p);
 
 	float NdotL;
 	float NdotH;
@@ -213,17 +209,18 @@ vec3 SampleDirect(HitRecord hit, vec3 V, Light light, float shadowMult) {
 	float D;
 	float G;
 	vec3 F;
-	vec3 H = normalize(V + L);
+	vec3 H = length(V + L) > 0.0 ? normalize(V + L) : V + L;
 	GetAllBRDFValues(hit, V, L, H, NdotL, NdotH, LdotH, NdotV, D, G, F);
 	float falloff = GetLightFalloff(hit, light);
-	lightIntensity = lightIntensity * falloff;
+	float lightIntensity = light.intensity * falloff;
 
 	// Evaluate the Cook-Torrance Microfacet BRDF model
 	// Cancel out NdotL here & the next eq. to avoid catastrophic numerical precision issues.
 	vec3 ggxTerm = D * G * F / (4 * NdotV /* * NdotL */);
 
 	// Compute our final color (combining diffuse lobe plus specular GGX lobe)
-	return shadowMult * lightColor * lightIntensity * ( /* NdotL * */ ggxTerm + NdotL * hit.mat.albedo / M_PI);
+	vec3 lightTerm = shadowMult * light.color * lightIntensity;
+	return lightTerm * ( /* NdotL * */ ggxTerm + NdotL * hit.mat.albedo / M_PI);
 }
 
 vec3 SampleDirectNew(HitRecord hit, vec3 V, vec3 L) {
@@ -249,7 +246,6 @@ bool SampleIndirectNew(HitRecord hit, vec3 normal, vec3 V, Material material, in
 	vec3 newRayDir = vec3(0.0);
 	
 	if (brdfType == DIFFUSE_BRDF) {
-		// TODO if this doesn't work, use code from website
 		newRayDir = SampleDiffuse(hit.p, normal);
 		BrdfData data = GetAllBRDFValues(normal, newRayDir, V, hit);
 	
@@ -266,6 +262,7 @@ bool SampleIndirectNew(HitRecord hit, vec3 normal, vec3 V, Material material, in
 		BrdfData data = GetAllBRDFValues(normal, vec3(0.0f, 0.0f, 1.0f) /* unused L vector */, V, hit);
 		newRayDir = SampleSpecularMicrofacet(hit, V, data.alpha, data.alphaSquared, data.specularF0, sampleWeight);
 	}
+
 	
 	if (luminance(sampleWeight) == 0.0) {
 		return false;

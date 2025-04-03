@@ -4,14 +4,14 @@
 namespace Graphics {
 
 Texture::Texture()
-    : m_width(0), m_height(0), m_image(nullptr), m_textureHandle(0)
+    : m_width(0), m_height(0), m_image(nullptr), m_textureHandle(0), m_dataSize(1)
 {}
 
 Texture::~Texture()
 {
-    //if (m_image) {
-    //    delete[] m_image;
-    //}
+    if (m_image) {
+        delete[] m_image;
+    }
     if (m_textureHandle) {
         glDeleteTextures(1, &m_textureHandle);
     }
@@ -47,14 +47,14 @@ void Texture::Init(const std::vector<Color8>& textureData, uint width, uint heig
     }
 }
 
-GLuint Texture::getTextureHandle(bool isImage /* = false */)
+GLuint Texture::getTextureHandle(GLenum binding, GLuint bindIndex, bool isImage /* = false */)
 {
     if (m_textureHandle == 0) {
         /*std::cout << "Texture::getTextureHandle => current context: "
           << glfwGetCurrentContext() << std::endl;*/
 
         glGenTextures(1, &m_textureHandle);
-        glActiveTexture(GL_TEXTURE0); 
+        glActiveTexture(binding); 
         
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {
@@ -77,7 +77,7 @@ GLuint Texture::getTextureHandle(bool isImage /* = false */)
             GL_RGBA, GL_UNSIGNED_BYTE, m_image);
 
         if (isImage) {
-            glBindImageTexture(0, m_textureHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+            glBindImageTexture(bindIndex, m_textureHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
             
             err = glGetError();
             if (err != GL_NO_ERROR) {
@@ -91,9 +91,18 @@ GLuint Texture::getTextureHandle(bool isImage /* = false */)
 			std::cerr << "OpenGL error after glTexImage2D: " << err << std::endl;
 		}
 
-        //glBindTexture(GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
     return m_textureHandle;
+}
+
+void Texture::updateImageDataFromGPU() {
+    if (m_textureHandle != 0) {
+        m_image = new byte[m_width * m_height * m_numChannels];
+        glBindTexture(GL_TEXTURE_2D, m_textureHandle);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, m_image);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }
 
 const byte* Texture::getImageData()
@@ -112,6 +121,82 @@ void Texture::debugReadTexture() {
 	std::cout << "First pixel from texture: R=" << (int)data[0] << " G=" << (int)data[1] << " B=" << (int)data[2] << std::endl;
 	delete[] data;
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+//---------------------------------Texture32-------------------------------------------------//
+
+Texture32::Texture32()
+    : Texture(), m_image(nullptr)
+{
+    m_dataSize = sizeof(float);
+}
+
+void Texture32::InitBlank() {
+    if (m_height <= 0 || m_width <= 0)
+        return;
+
+    size_t imgSize = m_numChannels * m_width * m_height;
+    m_image = new float[imgSize] { 0 };
+}
+
+GLuint Texture32::getTextureHandle(GLenum binding, GLuint bindIndex, bool isImage /*= false*/) {
+    if (m_textureHandle == 0) {
+
+        glGenTextures(1, &m_textureHandle);
+        glActiveTexture(binding);
+
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << "OpenGL error after glGenTextures: " << err << std::endl;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, m_textureHandle);
+
+        err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << "OpenGL error after glBindTexture: " << err << std::endl;
+        }
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_width, m_height, 0,
+            GL_RGBA, GL_FLOAT, m_image);
+
+        if (isImage) {
+            glBindImageTexture(bindIndex, m_textureHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+            err = glGetError();
+            if (err != GL_NO_ERROR) {
+                std::cerr << "OpenGL error after glBindImageTexture: " << err << std::endl;
+            }
+        }
+
+
+        err = glGetError();
+        if (err != GL_NO_ERROR) {
+            std::cerr << "OpenGL error after glTexImage2D: " << err << std::endl;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    return m_textureHandle;
+}
+
+float* Texture32::getImageData() {
+    return m_image;
+}
+
+void Texture32::updateImageDataFromGPU() {
+    if (m_textureHandle != 0) {
+        //m_image = new float[m_width * m_height * m_numChannels];
+        std::vector<float> img(m_width * m_height * m_numChannels);
+        glBindTexture(GL_TEXTURE_2D, m_textureHandle);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }
 
 }

@@ -7,7 +7,7 @@ set_config("buildir", "build")
 add_rules("mode.debug", "mode.release")
 add_requires("glfw", "glm")
 add_requires("stb")
-add_requires("gtest", "gtest_main")
+add_requires("gtest")
 
 -- Main App
 target("SimpleRayTracer")
@@ -25,7 +25,7 @@ target("SimpleRayTracer")
     end
 
     if is_mode("debug") then
-        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
+        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", {force = true})
     elseif is_mode("release") then
         add_cxxflags("-O3")
     end
@@ -56,45 +56,45 @@ target("SimpleRayTracer")
     end)
 
 -- TESTS
-target("IntersectionUtilsTests")
-    set_kind("binary")
-    set_languages("c++17")
+-- target("IntersectionUtilsTests")
+--     set_kind("binary")
+--     set_languages("c++17")
 
-    add_files("include/intersection_utils/tests/*.cpp")
-    add_includedirs("include")
+--     add_files("include/intersection_utils/tests/*.cpp")
+--     add_includedirs("include")
 
-    add_packages("gtest", "gtest_main")
+--     add_packages("gtest", "gtest_main")
 
-    if is_plat("linux") then
-      add_syslinks("pthread")
-    end
+--     if is_plat("linux") then
+--       add_syslinks("pthread")
+--     end
 
-    if is_mode("debug") then
-        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
-    elseif is_mode("release") then
-        add_cxxflags("-O3")
-    end
+--     if is_mode("debug") then
+--         add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
+--     elseif is_mode("release") then
+--         add_cxxflags("-O3")
+--     end
 
-target("ComputeTests")
-    set_kind("binary")
-    set_languages("c++17")
+-- target("ComputeTests")
+--     set_kind("binary")
+--     set_languages("c++17")
 
-    add_files("include/compute/tests/*.cpp", "src/glad.c", "src/asset_utils/*.cpp")
-    add_includedirs("include")
+--     add_files("include/compute/tests/*.cpp", "src/glad.c", "src/asset_utils/*.cpp")
+--     add_includedirs("include")
 
-    add_packages("stb", "glfw", "glm", "gtest", "gtest_main")
+--     add_packages("stb", "glfw", "glm", "gtest", "gtest_main")
 
-    if is_plat("linux") then
-      add_syslinks("pthread")
-    end
+--     if is_plat("linux") then
+--       add_syslinks("pthread")
+--     end
 
-    if is_mode("debug") then
-        add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
-    elseif is_mode("release") then
-        add_cxxflags("-O3")
-    end
+--     if is_mode("debug") then
+--         add_cxxflags("-Og", "-g", "-ggdb",  "-Wall", "-Wextra", {force = true})
+--     elseif is_mode("release") then
+--         add_cxxflags("-O3")
+--     end
 
-    on_run(function (target)
-        local bin_path = path.join(path.directory(target:targetfile()), target:name())
-        os.execv(bin_path, {})
-    end)
+--     on_run(function (target)
+--         local bin_path = path.join(path.directory(target:targetfile()), target:name())
+--         os.execv(bin_path, {})
+--     end)

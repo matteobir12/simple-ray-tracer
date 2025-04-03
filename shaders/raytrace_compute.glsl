@@ -1,15 +1,18 @@
 #version 450
+#extension GL_ARB_bindless_texture : require
 
 #define SPHERE_COUNT 2
 #define MAX_LIGHTS 10
 #define M_PI 3.1415926535897
+#define DIFFUSE_BRDF 1
+#define SPECULAR_BRDF 2
+#define SHOW_SPHERES true
+#define SHOW_MODELS false
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
-
-// World Data
-uniform int SphereCount;
+layout(binding = 2) uniform samplerBuffer noiseUniformTex;
 
 //Camera Data
 uniform int Width;
@@ -21,12 +24,13 @@ uniform vec3 cameraUp;
 uniform vec3 cameraRight;
 
 #include <raytrace_types.glsl>
+#include <ray_intersects.glsl>
 #include <raytrace_utils.glsl>
 #include <brdf.glsl>
 
 // Light Data
 uniform int lightCount;
-layout(std430, binding = 2) buffer lightBuffer {
+layout(std430, binding = 3) buffer lightBuffer {
 	Light lights[];
 };
 
@@ -116,16 +120,38 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	rec.frontFace = true;
 	rec.hit = false;
 
-	float closest = max;
+  ray.intersection_distance = max;
+  if (SHOW_SPHERES) {
+	  for (int i = 0; i < SPHERE_COUNT; i++)
+	  {
+		  if (SphereHit(ray, spheres[i], min, ray.intersection_distance, rec))
+		  {
+			  rec.hit = true;
+			  ray.intersection_distance = rec.t;
+		  }
+	  }
+  }
 
-	for (int i = 0; i < SPHERE_COUNT; i++)
-	{
-		if (SphereHit(ray, spheres[i], min, closest, rec))
-		{
-			rec.hit = true;
-			closest = rec.t;
-		}
-	}
+  if (SHOW_MODELS) {
+    for (uint i = 0; i < bvh_count; i++) {
+      // transform ray into model's space
+      vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
+      vec4 trans_direction = bvhs[i].frame * vec4(ray.direction, 0.);
+      // ray.intersection_distance is inout here, think this means it will be updated as expected
+      vec3 tri_norm;
+      uint hit = Intersects(bvhs[i].first_index, trans_origin.xyz, trans_direction.xyz, ray.intersection_distance, tri_norm);
+
+      if (hit != uint(-1)) {
+        rec.hit = true;
+        // I think?
+        rec.p = (ray.intersection_distance * ray.direction) + ray.origin;
+        vec3 model_p = (ray.intersection_distance * trans_direction.xyz) + trans_origin.xyz;
+        rec.normal = tri_norm;
+        rec.t = ray.intersection_distance;
+        TriangleToSupportedMat(triangles[hit], model_p, rec.mat);
+      }
+    }
+  }
 
 	return rec;
 }
@@ -141,52 +167,112 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
-vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int depth) {
+Light SampleLights(HitRecord hit, out float sampleWeight) {
+	float totalWeights = 0.0;
+	float samplePdf = 0.0;
+	Light selectedLight;
+
+	for (int i = 0; i < lightCount; i++) {
+		int randLightIndex = int(round(randFloatSampleUniform(hit.p.xy) * lightCount));
+		float lightWeight = float(lightCount);
+		Light light = lights[randLightIndex];
+		float falloff = GetLightFalloff(hit, light);
+		float intensity = light.intensity * falloff;
+
+		float lightPdf = luminance(vec3(intensity));
+		float lightRISWeight = lightPdf * lightWeight;
+		
+		totalWeights += lightRISWeight;
+		float rand = randFloatSampleUniform(vec2(hit.p.y + i, hit.p.z + i));
+		if (rand < (lightRISWeight / totalWeights)) {
+			selectedLight = light;
+			samplePdf = lightPdf;
+		}
+	}
+	sampleWeight = (totalWeights / float(lightCount)) / max(0.001, samplePdf);
+	return selectedLight;
+}
+
+vec3 GetRayColor(Camera cam, Ray ray, Sphere[SPHERE_COUNT] spheres, int maxDepth) {
 	vec3 dir = normalize(ray.direction);
 	float a = 0.5f * (dir.y + 1.0f);
-	vec3 color = vec3(0.0);
 
 	float infinity = 1.0 / 0.0;
-	float maxDepth = float(depth);
 	Light light = lights[0];
 	int lightIndex = 0;
-	vec3 throughputColor = vec3(1.0);
-	vec3 accumColor = vec3(0.0);
+	int randIndex = 0;
+	int depth = maxDepth;
+	
+	vec3 skyColor = vec3(0.1);// ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
+	vec3 throughputColor = vec3(1.0, 1.0, 1.0);
+	vec3 color = vec3(0.0, 0.0, 0.0);
+
 	while (true) {
 		HitRecord rec = CheckHit(ray, spheres, 0.001, infinity);
 		if (rec.hit)
 		{
-			Light light = lights[lightIndex];
-			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
-			color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult);
+			float lightSampleWeight;
+			Light light = SampleLights(rec, lightSampleWeight);// lights[lightIndex];
+			vec3 V = -ray.direction;
 
-			float pdf;
-			bool isDiffuse;
-			vec3 direction = SampleNextRay(rec, ray, pdf, isDiffuse);
-			if (pdf == 0.0) {
-				break;
+			//Get Direct color
+			float shadowMult = CheckLightOccluded(rec.p, light, spheres) ? 0.0 : 1.0;
+			vec3 L;
+			getLightData(light, rec.p, L);
+			if (rec.mat.useSpec) {
+				color += throughputColor * SampleDirect(rec, -ray.direction, light, shadowMult) * lightSampleWeight;
+			}
+			else {
+				float falloff = GetLightFalloff(rec, light);
+				vec3 lightIntensity = light.color * falloff * light.intensity * lightSampleWeight;
+				color += throughputColor * SampleDirectNew(rec, -ray.direction, L) * shadowMult * lightIntensity;
 			}
 
-			throughputColor *= BRDF(rec, ray.direction, direction, isDiffuse) * abs(dot(direction, rec.normal)) / pdf;
-			
-			ray.direction = direction;
-			ray.origin = rec.p;
-			depth--;
-			lightIndex = (lightIndex + 1) % lightCount;
+			int brdfType;
+			if (rec.mat.metalness == 1.0 && rec.mat.roughness == 0.0) {
+				brdfType = SPECULAR_BRDF;
+			}
+			else {
+				float brdfProb = GetBrdfProbability(rec.mat, V, rec.normal);
+				float rand = randFloatSampleUniform(vec2(rec.p.x + depth, rec.p.y + depth));
+
+				if (rand < brdfProb) {
+					brdfType = SPECULAR_BRDF;
+					throughputColor /= brdfProb;
+				}
+				else {
+					brdfType = DIFFUSE_BRDF;
+					throughputColor /= (1.0 - brdfProb);
+				}
+			}
 
 			if (depth <= 0) {
 				float survivalProb = clamp(luminance(throughputColor), 0.1, 1.0);
-				if (randFloatSample(rec.p.xy) > survivalProb) break;
+				if (randFloatSampleUniform(vec2(rec.p.x + randIndex, rec.p.y + randIndex)) > survivalProb) break;
 				throughputColor /= survivalProb;
+				randIndex++;
 			}
+			else {
+				depth--;
+			}
+			vec3 direction;
+			vec3 brdfWeight;
+			if (!SampleIndirectNew(rec, rec.normal, V, rec.mat, brdfType, direction, brdfWeight)) {
+				break;
+			}
+
+			throughputColor *= brdfWeight;
+			
+			ray.direction = direction;
+			ray.origin = rec.p;
+			lightIndex = (lightIndex + 1) % lightCount;
 		}
 		else {
 			break;
 		}
 	}
-
-	color += throughputColor * ((1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0));
 	
+	color += throughputColor * skyColor;
 	return color;
 }
 
@@ -195,29 +281,41 @@ void main() {
 	// TODO move all this data to uniform buffers
 	Material material1;
 	Material material2;
-	material1.albedo = vec3(0.1, 0.2, 0.2);
-	material1.specular = vec3(0.6, 0.8, 0.8);
-	material1.roughness = 0.1;
+	material1.albedo = vec3(0.2, 0.8, 0.8);
+	material1.specular = vec3(0.2, 0.4, 0.4);
+	material1.roughness = 0.01;
+	material1.metalness = 0.99;
+	material1.useSpec = false;
 	material2.albedo = vec3(0.8, 0.3, 0.3);
-	material2.specular = vec3(0.5, 0.2, 0.4);
-	material2.roughness = 0.05;
+	material2.specular = vec3(0.9, 0.7, 0.7);
+	material2.roughness = 0.1;
+	material2.metalness = 0.5;
+	material1.useSpec = true;
 
 	Sphere world[SPHERE_COUNT];
 	world[1].pos = vec3(0.0, -100.5, -1.0);
 	world[1].radius = 100.0;
 	world[1].mat = material1;
-	world[0].pos = vec3(0.0, 0.0, -1.0);
+	world[0].pos = vec3(0.0, 0.0, -1.5);
 	world[0].radius = 0.5;
 	world[0].mat = material2;
 
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 50;
-	settings.maxDepth = 10;
+	settings.samplesPerPixel = 250;
+	settings.maxDepth = 30;
 	settings.vFov = 90.0;
-	settings.origin = vec3(0.0, 0.0, 0.0);
-	settings.lookAt = vec3(0.0, 0.0, -1.0);
+	if (!SHOW_MODELS) {
+		settings.samplesPerPixel = 100;
+		settings.origin = vec3(0.0, 0.0, 0.0);
+		settings.lookAt = vec3(0.0, 0.0, -1.0);
+	}
+	else {
+		settings.samplesPerPixel = 5;
+		settings.origin = vec3(0.0, 20.0, 25.0);
+		settings.lookAt = vec3(0.0, 2.0, -1.0);
+	}
 	settings.vUp = vec3(0.0, 1.0, 0.0);
 	settings.defocusAngle = 0.0;
 	settings.focusDist = 1.0;

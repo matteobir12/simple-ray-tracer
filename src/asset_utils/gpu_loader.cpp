@@ -18,16 +18,19 @@ struct GPUBVH {
 
 struct GPUBVHNode {
   glm::vec3 min_bounds;
-  glm::vec3 max_bounds;
   std::uint32_t first_child_or_prim_index;
+  glm::vec3 max_bounds;
   std::uint32_t prim_count;
 };
 
 struct GPUMaterial {
   glm::vec3 diffuse;
-  glm::vec3 specular;
   float specular_ex;
-  std::uint32_t use_texture; // 0 or 1
+  glm::vec3 specular;
+  std::uint32_t use_texture = 0; // 0 or 1
+  GLuint64 handle; // valid only if use_texture is true
+  std::uint32_t _pad0;
+  std::uint32_t _pad1;
 };
 
 struct GPUTriangle {
@@ -57,7 +60,7 @@ static GLuint s_vertices_SSBO = 0;
 static GLuint s_ray_buffer = 0;
 }
 
-void UploadModelDataToGPU(const std::vector<Model*>& models) {
+void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t binding_offset) {
   g_bvhs.clear();
   g_bvh_nodes.clear();
   g_materials.clear();
@@ -81,6 +84,8 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
       gpu_mat.specular = mat.specular;
       gpu_mat.specular_ex = mat.specular_ex;
       gpu_mat.use_texture = mat.use_texture;
+      if (mat.use_texture)
+        gpu_mat.handle = mat.texture.GetHandle();
 
       g_materials.push_back(gpu_mat);
     }
@@ -99,7 +104,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
     gpu_BVH.count = static_cast<std::uint32_t>(bvh.GetBVH().size());
     g_bvhs.push_back(gpu_BVH);
 
-    std::uint32_t localTriOffset = cur_triangle_off;
+    std::uint32_t local_tri_offset = cur_triangle_off;
     for (const auto& tri : bvh.GetPrims()) {
       GPUTriangle gpu_tri;
       gpu_tri.v0_idx = tri.vertex_idxs[0] + model_vert_off;
@@ -118,7 +123,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
       gpu_node.max_bounds = node.max_bounds;
       gpu_node.first_child_or_prim_index =
           node.prim_count > 0 ?
-              node.first_prim_index + localTriOffset:
+              node.first_prim_index + local_tri_offset:
               node.first_child + cur_BVH_node_off;
       gpu_node.prim_count = node.prim_count;
       g_bvh_nodes.push_back(gpu_node);
@@ -144,7 +149,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_bvh_nodes_SSBO);
   glBufferData(
       GL_SHADER_STORAGE_BUFFER,
-      g_bvh_nodes.size() * sizeof(IntersectionUtils::BVHNode),
+      g_bvh_nodes.size() * sizeof(GPUBVHNode),
       g_bvh_nodes.data(),
       GL_STATIC_DRAW);
 
@@ -170,11 +175,11 @@ void UploadModelDataToGPU(const std::vector<Model*>& models) {
       GL_STATIC_DRAW);
 
   // bind them to the binding points that match the shader
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s_bvh_ranges_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, s_bvh_nodes_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, s_materials_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, s_triangles_SSBO);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, s_vertices_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 0, s_bvh_ranges_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 1, s_bvh_nodes_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 2, s_materials_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 3, s_triangles_SSBO);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_offset + 4, s_vertices_SSBO);
 }
 
 void UpdateModelMatrix(const std::uint32_t index, const glm::mat4& matrix) {

@@ -11,9 +11,10 @@
 
 namespace AssetUtils {
 namespace {
-constexpr const char* TEXTURE_FOLDER = "./textures/";
 constexpr const char* OBJ_FOLDER = "./objects/";
 }
+
+std::unordered_map<std::string, Detail::TextureInfo> GPUTexture::LoadedTextures;
 
 // models smaller than unsigned int verts
 std::unique_ptr<Model> LoadObject(const std::string& name) {
@@ -228,11 +229,8 @@ void ParseMTL(
       current_material->use_texture = true;
 
       // Use 'file_name' rather than 'fileName'
-      std::string tex_path =
-          TEXTURE_FOLDER +
-          file_name.substr(0, file_name.size() - 4) + // remove .mtl extension
-          "/" + texture_name;
-      current_material->texture = GPUTexture(tex_path);
+      std::string tex_path = folder_path + "/" + texture_name;
+      current_material->texture = std::move(GPUTexture(tex_path, true));
     }
     else if (prefix == "Kd") {
       glm::vec3 d;
@@ -240,13 +238,13 @@ void ParseMTL(
       current_material->diffuse = d;
     }
     else if (prefix == "Ka") {
-      // Ambient reflectivity (ignored or stored if needed)
+      // Ambient reflectivity
     }
     else if (prefix == "Tf") {
-      // Transmission filter (ignored or stored if needed)
+      // Transmission filter
     }
     else if (prefix == "Ni") {
-      // Index of refraction (ignored or stored if needed)
+      // Index of refraction
     }
     else if (prefix == "Ks") {
       glm::vec3 s;
@@ -259,7 +257,7 @@ void ParseMTL(
       current_material->specular_ex = e;
     }
     else if (prefix == "Ke") {
-      // emissive (ignored or stored if needed)
+      // emissive
     }
     else if (prefix == "d") {
       // ??
@@ -269,6 +267,9 @@ void ParseMTL(
     }
     else if (prefix == "Tr") {
       // ??
+    }
+    else if (prefix == "map_Ka") {
+      // a texture map that is applied to the ambient reflectivity of a material
     }
     else {
       std::cout << "Unknown material property: " << prefix << std::endl;

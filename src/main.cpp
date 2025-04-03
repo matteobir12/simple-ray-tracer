@@ -13,6 +13,8 @@
 #include "raytracer/utils.h"
 #include "graphics/texture.h"
 #include "graphics/shader.h"
+#include "asset_utils/gpu_loader.h"
+#include "asset_utils/model_loader.h"
 
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
@@ -120,7 +122,9 @@ void main () {
   }
 
   GLuint quadVAO = 0, quadVBO = 0;
-  GLuint noiseTBO = 0, noiseTex = 0;
+  GLuint noiseTBOs[2], noiseTex[2];
+  /*GLuint noiseTBO = 0, noiseTex = 0;
+  GLuint noiseUniformTBO = 0, noiseUniformTex = 0;*/
   GLuint quadShaderProgram = 0;
   GLuint rayTracerTextureHandle = 0;
 
@@ -149,7 +153,7 @@ void main () {
 
 } // namespace
 
-void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData) {
+void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData, std::vector<glm::vec3>& noiseUniformData) {
     compute.Init();
 
     GLenum err;
@@ -160,24 +164,31 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData) 
         vec = Common::randomUnitVector();
     }
 
+    for (auto& vec2 : noiseUniformData) {
+        vec2 = Common::randomVec3(0.0f, 1.0f);
+    }
+
     int dataSize = WIDTH * HEIGHT * 3 * sizeof(float);
-    glGenBuffers(1, &noiseTBO);
-    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBO);
+
+    glGenBuffers(2, noiseTBOs);
+    glGenTextures(2, noiseTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[0]);
     glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseData.data(), GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[0]);
 
-    while ((err = glGetError()) != GL_NO_ERROR)
-        std::cerr << "Bind Noise Buffer: " << err << std::endl;
+    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[1]);
+    glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseUniformData.data(), GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[1]);
 
-    glGenTextures(1, &noiseTex);
-    glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBO);
-
-    while ((err = glGetError()) != GL_NO_ERROR)
-        std::cerr << "Bind Noise Buffer: " << err << std::endl;
-
-    /*glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
-    glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);*/
+    std::vector<AssetUtils::Model *> models;
+    auto model = AssetUtils::LoadObject("Rubik");
+    models.push_back(model.get());
+    auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+    models.push_back(plane_model.get());
+    AssetUtils::UploadModelDataToGPU(models, 4);
 
     while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "Bind Noise Buffer: " << err << std::endl;
@@ -261,7 +272,7 @@ int main() { // int argc, char** argv
     return -1;
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
   GLFWwindow* const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
@@ -331,11 +342,12 @@ int main() { // int argc, char** argv
   Graphics::Compute compute("./shaders/raytrace_compute.glsl");
   Graphics::Texture texture;
   std::vector<glm::vec3> noiseData(WIDTH * HEIGHT);
+  std::vector<glm::vec3> noiseDataUniform(WIDTH * HEIGHT);
   if (RUN_COMPUTE_RT) {
       texture.setWidth(WIDTH);
       texture.setHeight(HEIGHT);
       rayTracerTextureHandle = texture.getTextureHandle(true);
-      InitCompute(compute, noiseData);
+      InitCompute(compute, noiseData, noiseDataUniform);
   }
   // Run the Raytracer
   else if (RUN_RT) {
@@ -370,7 +382,7 @@ int main() { // int argc, char** argv
 
       std::vector<RayTracer::PointLight> lights;
       lights.reserve(MAX_LIGHTS);
-      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1, 1, 1));
+      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1, 1, 1), 5.0f);
 
       RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
       raytracer.Init(world);
@@ -403,9 +415,11 @@ int main() { // int argc, char** argv
   }
 
   std::vector<glm::vec3> noise = RayTracer::getNoiseBuffer();
+  std::vector<glm::vec3> noiseUniform = RayTracer::getUniformNoiseBuffer();
   std::vector<RayTracer::PointLight> lights;
   lights.reserve(MAX_LIGHTS);
-  lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0));
+  lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 10.0f);
+  lights.emplace_back(glm::vec3(-2.5, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 3.0f);
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
   while (!glfwWindowShouldClose(window)) {
@@ -438,19 +452,25 @@ int main() { // int argc, char** argv
   
       compute.SetInt("Width", WIDTH);
       compute.SetInt("Height", HEIGHT);
+        compute.SetUInt("bvh_count", 2); // models in scene
+
       compute.SetInt("lightCount", lights.size());
   
       GLuint ssbo;
       glGenBuffers(1, &ssbo);
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-      glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_STATIC_DRAW);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo);
+      glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_DYNAMIC_DRAW);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo);
   
       glActiveTexture(GL_TEXTURE1);
-      glBindTexture(GL_TEXTURE_BUFFER, noiseTex);
+      glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
       glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);
   
-      glDispatchCompute((WIDTH + 15) / 16, (HEIGHT + 15) / 16, 1);      
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
+        glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseUniformTex"), 0);
+
+      glDispatchCompute((unsigned int)(WIDTH / 8), (unsigned int)(HEIGHT / 8) , 1);      
       glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
       glDeleteBuffers(1, &ssbo);
   }
@@ -467,8 +487,8 @@ int main() { // int argc, char** argv
   // Clean up
   
   CleanupQuad();
-  glDeleteTextures(1, &noiseTex);
-  glDeleteBuffers(1, &noiseTBO);
+  glDeleteTextures(2, noiseTex);
+  glDeleteBuffers(2, noiseTBOs);
   
   glfwDestroyWindow(window);
   glfwTerminate();

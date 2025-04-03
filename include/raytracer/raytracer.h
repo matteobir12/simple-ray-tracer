@@ -22,7 +22,7 @@ public:
 		, world()
 		, texture()
 		, writeTexture(writeTexture)
-		, light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1))
+		, light(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1), 1.0f)
 	{}
 
 	void Init(World& w);

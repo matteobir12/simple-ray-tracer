@@ -41,6 +41,29 @@ float randFloatSample(vec2 seed) {
 	return val;// (val + 1.0) / 2.0;
 }
 
+float randFloatSampleUniform(vec2 seed) {
+	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+	int index = (coord.y * Height) + coord.x;
+
+	float rand = randFloat(seed.xy) * Width * Height;
+	int randInt = int(rand);
+	index = (index + randInt) % (Width * Height);
+
+	float val = texelFetch(noiseUniformTex, index).x;
+	return val;// (val + 1.0) / 2.0;
+}
+
+float randFloatSample(vec2 seed, int index) {
+	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+
+	float rand = randFloat(seed.xy) * Width * Height;
+	int randInt = int(rand);
+	index = (index + randInt) % (Width * Height);
+
+	float val = texelFetch(noiseTex, index).x;
+	return val;
+}
+
 vec3 randomUnitVec() {
 	vec2 x = vec2(float(gl_GlobalInvocationID.x), float(gl_GlobalInvocationID.y));
 	vec2 y = vec2(float(gl_GlobalInvocationID.x) * 0.25, float(gl_GlobalInvocationID.y) * 0.25);
@@ -54,7 +77,7 @@ vec3 randomOnHemisphere(vec3 normal, vec3 point) {
 	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
 	int index = (coord.y * Height) + coord.x;
 
-	float rand = randFloat(point.xy) * Width * Height;
+	float rand = randFloatSampleUniform(point.xy) * Width * Height;
 	int randInt = int(rand);
 	index = (index + randInt) % (Width * Height);
 
@@ -82,12 +105,16 @@ vec3 GetCosHemisphereSample(vec3 hitNorm, vec3 point) {
 
 /** Returns a relative luminance of an input linear RGB color in the ITU-R BT.709 color space */
 float luminance(vec3 rgb) {
-	return dot(rgb, vec3(0.2126f, 0.7152f, 0.0722f));
+	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 }
 
-float probabilityToSampleDiffuse(vec3 difColor, vec3 specColor) {
-	float lumDiffuse = max(0.01f, luminance(difColor.rgb));
-	float lumSpecular = max(0.01f, luminance(specColor.rgb));
+vec3 specularF0(vec3 baseColor, float metalness) {
+	return mix(vec3(0.04, 0.04, 0.04), baseColor, metalness);
+}
+
+float probabilityToSampleDiffuse(vec3 diffBRDF, vec3 specBRDF) {
+	float lumDiffuse = max(0.01f, luminance(diffBRDF));
+	float lumSpecular = max(0.01f, luminance(specBRDF));
 	return lumDiffuse / (lumDiffuse + lumSpecular);
 }
 
@@ -99,4 +126,48 @@ vec3 getPerpendicularVector(vec3 u) {
 	uint ym = (a.y - a.z) < 0 ? (1 ^ xm) : 0;
 	uint zm = 1 ^ (xm | ym);
 	return cross(u, vec3(xm, ym, zm));
+}
+
+float shadowedF90(vec3 F0) {
+	// This scaler value is somewhat arbitrary, Schuler used 60 in his article. In here, we derive it from MIN_DIELECTRICS_F0 so
+	// that it takes effect for any reflectance lower than least reflective dielectrics
+	//const float t = 60.0f;
+	const float t = (1.0f / 0.04);
+	return min(1.0f, t * luminance(F0));
+}
+
+//intersect_point needs to be in the same frame as the triangles (model frame)
+Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Material out_mat) {
+  MaterialFromOBJ in_mat = materials[tri.material_idx];
+
+  if (in_mat.use_texture == 0) {
+    out_mat.albedo = in_mat.diffuse;
+  } else {
+    VertexData t0 = vertices[tri.v0_idx];
+    VertexData t1 = vertices[tri.v1_idx];
+    VertexData t2 = vertices[tri.v2_idx];
+
+    vec3 v0v1 = t1.vertex - t0.vertex;
+    vec3 v0v2 = t2.vertex - t0.vertex;
+    vec3 v0p = intersect_point - t0.vertex;
+
+    float d00 = dot(v0v1, v0v1);
+    float d01 = dot(v0v1, v0v2);
+    float d11 = dot(v0v2, v0v2);
+    float d20 = dot(v0p, v0v1);
+    float d21 = dot(v0p, v0v2);
+
+    float denom = 1 / (d00 * d11 - d01 * d01);
+    float v = (d11 * d20 - d01 * d21) * denom;
+    float w = (d00 * d21 - d01 * d20) * denom;
+    float u = 1.0f - v - w;
+    vec2 texcoord = u * t0.texture + v * t1.texture + w * t2.texture;
+    sampler2D tex_sampler = sampler2D(in_mat.handle);
+    out_mat.albedo = texture(tex_sampler, texcoord).xyz;
+  }
+
+  out_mat.specular = in_mat.specular;
+  // TEMP
+  out_mat.roughness = 1 / (in_mat.specular_ex + 0.0000001 /* eps */);
+  return out_mat;
 }

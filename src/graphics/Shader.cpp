@@ -78,6 +78,11 @@ void Shader::SetInt(const std::string& name, int val) {
     glUniform1i(glGetUniformLocation(m_program, name.c_str()), val);
 }
 
+void Shader::SetUInt(const std::string& name, uint val) {
+  glUniform1ui(glGetUniformLocation(m_program, name.c_str()), val);
+}
+
+
 void Shader::SetFloat(const std::string& name, float val) {
     glUniform1f(glGetUniformLocation(m_program, name.c_str()), val);
 }
@@ -118,7 +123,7 @@ void Compute::Init() {
         glGetShaderInfoLog(m_shader, 512, nullptr, infoLog);
         std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n"
             << infoLog << std::endl;
-        std::cerr << m_shaderSource;
+        std::terminate();
     }
 
     m_program = glCreateProgram();
@@ -133,6 +138,7 @@ void Compute::Init() {
         glGetProgramInfoLog(m_program, 512, nullptr, infoLog);
         std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n"
             << infoLog << std::endl;
+        std::terminate();
     }
 }
 

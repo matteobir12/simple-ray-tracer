@@ -1,8 +1,63 @@
+#define NAN uintBitsToFloat(0x7fc00000)
+#define INF uintBitsToFloat(0x7f800000)
 
 struct Material {
 	vec3 albedo;
 	vec3 specular;
 	float roughness;
+	float metalness;
+	bool useSpec;
+};
+
+// TODO: texture support
+// needs to match asset_utils/types.h Material
+// TODO replace specular_ex with roughness on load where 
+// float roughness = sqrt(2.0f / (specular_ex + 2.0f));
+// roughness = clamp(roughness, 0.0f, 1.0f);
+//
+// For now temp sol: roughness ~ 1 / (specular_ex + eps)
+struct MaterialFromOBJ {
+  vec3 diffuse;
+  float specular_ex;
+  vec3 specular;
+  uint use_texture; // bool
+  uvec2 handle;
+  uint _pad0;
+  uint _pad1;
+};
+
+// describes the start and len of each BVH in the BVHNodeBuffer
+// as well as the coordinate frame the bvh is in (world frame to model frame)
+// I'm pretty sure this is also inverse traditional model matrix
+struct BVH {
+  uint first_index;
+  uint count;
+  uint _pad0;
+  uint _pad1;
+  mat4 frame;
+};
+
+// we're currently going with 2 children, so at first_child and first_child + 1
+struct BVHNode {
+  vec3 min_bounds;
+  uint first_child_or_prim_index;
+  vec3 max_bounds;
+  uint prim_count;
+};
+
+// data for each triangle in buffer
+// each member points to another buffer
+struct Triangle {
+  uint v0_idx;
+  uint v1_idx;
+  uint v2_idx;
+  uint material_idx;
+};
+
+// data for each vertex in buffer
+struct VertexData {
+  vec3 vertex;
+  vec2 texture;
 };
 
 struct CameraSettings {
@@ -32,8 +87,10 @@ struct Camera {
 };
 
 struct Ray {
-	vec3 origin;
-	vec3 direction;
+  vec3 origin;
+  float _pad0;
+  vec3 direction;
+  float intersection_distance;
 };
 
 struct Sphere {
@@ -44,8 +101,8 @@ struct Sphere {
 
 struct Light {
 	vec3 position;
-	float pad0;
-	vec3 intensity;
+	float intensity;
+	vec3 color;
 	float pad1;
 };
 
@@ -56,4 +113,31 @@ struct HitRecord {
 	float t;
 	bool frontFace;
 	Material mat;
+};
+
+struct BrdfData {
+	// Material properties
+	vec3 specularF0;
+	vec3 diffuseReflectance;
+
+	// Roughnesses
+	float roughness;    //< perceptively linear roughness (artist's input)
+	float alpha;        //< linear roughness - often 'alpha' in specular BRDF equations
+	float alphaSquared; //< alpha squared - pre-calculated value commonly used in BRDF equations
+
+	// Commonly used terms for BRDF evaluation
+	vec3 F; //< Fresnel term
+
+	// Vectors
+	vec3 V; //< Direction to viewer (or opposite direction of incident ray)
+	vec3 N; //< Shading normal
+	vec3 H; //< Half vector (microfacet normal)
+	vec3 L; //< Direction to light (or direction of reflecting ray)
+
+	float NdotL;
+	float NdotV;
+
+	float LdotH;
+	float NdotH;
+	float VdotH;
 };

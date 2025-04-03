@@ -28,13 +28,12 @@ struct Triangle {
 };
 }
 
-// needs to match shaders/ray_intersects.glsl Material
 struct Material {
   glm::vec3 diffuse;
   glm::vec3 specular;
   float specular_ex;
   GPUTexture texture;
-  std::uint32_t use_texture = false;
+  bool use_texture = false;
 };
 
 struct Model {

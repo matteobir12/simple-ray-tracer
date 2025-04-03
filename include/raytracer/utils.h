@@ -17,4 +17,13 @@ namespace RayTracer {
 
 		return ret;
 	}
+
+	std::vector<glm::vec3> getUniformNoiseBuffer() {
+		std::vector<glm::vec3> ret(RAND_COUNT);
+		for (int i = 0; i < RAND_COUNT; ++i) {
+			ret.push_back(Common::randomVec3(0.0f, 1.0f));
+		}
+
+		return ret;
+	}
 }

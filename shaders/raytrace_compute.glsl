@@ -7,7 +7,7 @@
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
 #define SHOW_SPHERES true
-#define SHOW_MODELS true
+#define SHOW_MODELS false
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;

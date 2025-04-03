@@ -303,8 +303,8 @@ void main() {
 	CameraSettings settings;
 	settings.width = Width;
 	settings.aspect = float(Width) / float(Height);
-	settings.samplesPerPixel = 250;
-	settings.maxDepth = 30;
+	settings.samplesPerPixel = 300;
+	settings.maxDepth = 50;
 	settings.vFov = 90.0;
 	if (!SHOW_MODELS) {
 		settings.samplesPerPixel = 100;

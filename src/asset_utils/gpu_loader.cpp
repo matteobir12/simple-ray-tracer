@@ -104,7 +104,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t
     gpu_BVH.count = static_cast<std::uint32_t>(bvh.GetBVH().size());
     g_bvhs.push_back(gpu_BVH);
 
-    std::uint32_t localTriOffset = cur_triangle_off;
+    std::uint32_t local_tri_offset = cur_triangle_off;
     for (const auto& tri : bvh.GetPrims()) {
       GPUTriangle gpu_tri;
       gpu_tri.v0_idx = tri.vertex_idxs[0] + model_vert_off;
@@ -123,7 +123,7 @@ void UploadModelDataToGPU(const std::vector<Model*>& models, const std::uint32_t
       gpu_node.max_bounds = node.max_bounds;
       gpu_node.first_child_or_prim_index =
           node.prim_count > 0 ?
-              node.first_prim_index + localTriOffset:
+              node.first_prim_index + local_tri_offset:
               node.first_child + cur_BVH_node_off;
       gpu_node.prim_count = node.prim_count;
       g_bvh_nodes.push_back(gpu_node);

@@ -12,8 +12,8 @@ newmtl 11803_Airplane_body
 	Kd 1.0000 1.0000 1.0000
 	Ks 0.5400 0.5400 0.5400
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_body_diff.jpg
-	map_Kd 11803_Airplane_body_diff.jpg
+	map_Ka 11803_Airplane_body_diff.png
+	map_Kd 11803_Airplane_body_diff.png
 
 newmtl 11803_Airplane_wing_R
 	Ns 30.0000
@@ -26,8 +26,8 @@ newmtl 11803_Airplane_wing_R
 	Kd 1.0000 1.0000 1.0000
 	Ks 0.2790 0.2790 0.2790
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_wing_big_R_diff.jpg
-	map_Kd 11803_Airplane_wing_big_R_diff.jpg
+	map_Ka 11803_Airplane_wing_big_R_diff.png
+	map_Kd 11803_Airplane_wing_big_R_diff.png
 
 newmtl 11803_Airplane_wing_details_R
 	Ns 30.0000
@@ -40,8 +40,8 @@ newmtl 11803_Airplane_wing_details_R
 	Kd 1.0000 1.0000 1.0000
 	Ks 0.2790 0.2790 0.2790
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_wing_details_R_diff.jpg
-	map_Kd 11803_Airplane_wing_details_R_diff.jpg
+	map_Ka 11803_Airplane_wing_details_R_diff.png
+	map_Kd 11803_Airplane_wing_details_R_diff.png
 
 newmtl 11803_Airplane_tail
 	Ns 30.0000
@@ -54,8 +54,8 @@ newmtl 11803_Airplane_tail
 	Kd 1.0000 1.0000 1.0000
 	Ks 0.2790 0.2790 0.2790
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_tail_diff.jpg
-	map_Kd 11803_Airplane_tail_diff.jpg
+	map_Ka 11803_Airplane_tail_diff.png
+	map_Kd 11803_Airplane_tail_diff.png
 
 newmtl 11803_Airplane_wing_details_L
 	Ns 30.0000
@@ -68,8 +68,8 @@ newmtl 11803_Airplane_wing_details_L
 	Kd 1.0000 1.0000 1.0000
 	Ks 0.2790 0.2790 0.2790
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_wing_details_L_diff.jpg
-	map_Kd 11803_Airplane_wing_details_L_diff.jpg
+	map_Ka 11803_Airplane_wing_details_L_diff.png
+	map_Kd 11803_Airplane_wing_details_L_diff.png
 
 newmtl 11803_Airplane_wing_L
 	Ns 30.0000
@@ -82,5 +82,5 @@ newmtl 11803_Airplane_wing_L
 	Kd 0.7843 0.7843 0.7843
 	Ks 0.2790 0.2790 0.2790
 	Ke 0.0000 0.0000 0.0000
-	map_Ka 11803_Airplane_wing_big_L_diff.jpg
-	map_Kd 11803_Airplane_wing_big_L_diff.jpg
+	map_Ka 11803_Airplane_wing_big_L_diff.png
+	map_Kd 11803_Airplane_wing_big_L_diff.png

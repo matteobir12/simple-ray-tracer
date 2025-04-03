@@ -68,7 +68,7 @@ class GPUTexture {
   }
 
   GPUTexture(const GPUTexture& other) 
-    : texture_id_(other.texture_id_) {
+    : texture_id_(other.texture_id_), valid_for_bindless_(other.valid_for_bindless_), handle_(other.handle_) {
     for (auto& [_, info] : LoadedTextures) {
       if (info.texture_gpu_id == texture_id_) {
         info.ref_count += 1;
@@ -78,7 +78,7 @@ class GPUTexture {
   }
 
   GPUTexture(GPUTexture&& other) noexcept
-    : texture_id_(other.texture_id_)
+    : texture_id_(other.texture_id_), valid_for_bindless_(other.valid_for_bindless_), handle_(other.handle_)
   {
     other.texture_id_ = 0;
   }
@@ -87,6 +87,8 @@ class GPUTexture {
     if (this != &other) {
       Release();
       texture_id_ = other.texture_id_;
+      valid_for_bindless_ = other.valid_for_bindless_;
+      handle_ = other.handle_;
       for (auto& [_, info] : LoadedTextures) {
         if (info.texture_gpu_id == texture_id_) {
           info.ref_count += 1;
@@ -101,6 +103,8 @@ class GPUTexture {
     if (this != &other) {
       Release();
       texture_id_ = other.texture_id_;
+      valid_for_bindless_ = other.valid_for_bindless_;
+      handle_ = other.handle_;
       other.texture_id_ = 0;
     }
     return *this;

@@ -186,8 +186,8 @@ void InitCompute(Graphics::Compute& compute, std::vector<glm::vec3>& noiseData, 
     std::vector<AssetUtils::Model *> models;
     auto model = AssetUtils::LoadObject("Rubik");
     models.push_back(model.get());
-    // auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
-    // models.push_back(plane_model.get());
+    auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+    models.push_back(plane_model.get());
     AssetUtils::UploadModelDataToGPU(models, 4);
 
     while ((err = glGetError()) != GL_NO_ERROR)
@@ -272,7 +272,7 @@ int main() { // int argc, char** argv
     return -1;
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
   GLFWwindow* const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
@@ -407,7 +407,7 @@ int main() { // int argc, char** argv
 
         compute.SetInt("Width", WIDTH);
         compute.SetInt("Height", HEIGHT);
-        compute.SetUInt("bvh_count", 1); // models in scene
+        compute.SetUInt("bvh_count", 2); // models in scene
 
         compute.SetInt("lightCount", lights.size());
 

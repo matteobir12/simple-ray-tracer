@@ -141,30 +141,3 @@ struct BrdfData {
 	float NdotH;
 	float VdotH;
 };
-
-struct BrdfData {
-	// Material properties
-	vec3 specularF0;
-	vec3 diffuseReflectance;
-
-	// Roughnesses
-	float roughness;    //< perceptively linear roughness (artist's input)
-	float alpha;        //< linear roughness - often 'alpha' in specular BRDF equations
-	float alphaSquared; //< alpha squared - pre-calculated value commonly used in BRDF equations
-
-	// Commonly used terms for BRDF evaluation
-	vec3 F; //< Fresnel term
-
-	// Vectors
-	vec3 V; //< Direction to viewer (or opposite direction of incident ray)
-	vec3 N; //< Shading normal
-	vec3 H; //< Half vector (microfacet normal)
-	vec3 L; //< Direction to light (or direction of reflecting ray)
-
-	float NdotL;
-	float NdotV;
-
-	float LdotH;
-	float NdotH;
-	float VdotH;
-};

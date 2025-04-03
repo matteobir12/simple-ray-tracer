@@ -11,7 +11,6 @@
 
 namespace AssetUtils {
 namespace {
-constexpr const char* TEXTURE_FOLDER = "./textures/";
 constexpr const char* OBJ_FOLDER = "./objects/";
 }
 
@@ -228,11 +227,8 @@ void ParseMTL(
       current_material->use_texture = true;
 
       // Use 'file_name' rather than 'fileName'
-      std::string tex_path =
-          TEXTURE_FOLDER +
-          file_name.substr(0, file_name.size() - 4) + // remove .mtl extension
-          "/" + texture_name;
-      current_material->texture = GPUTexture(tex_path, true);
+      std::string tex_path = folder_path + "/" + texture_name;
+      current_material->texture = std::move(GPUTexture(tex_path, true));
     }
     else if (prefix == "Kd") {
       glm::vec3 d;

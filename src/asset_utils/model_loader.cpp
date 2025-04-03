@@ -14,6 +14,8 @@ namespace {
 constexpr const char* OBJ_FOLDER = "./objects/";
 }
 
+std::unordered_map<std::string, Detail::TextureInfo> GPUTexture::LoadedTextures;
+
 // models smaller than unsigned int verts
 std::unique_ptr<Model> LoadObject(const std::string& name) {
   std::vector<std::string> mtl_files;

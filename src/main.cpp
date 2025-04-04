@@ -25,7 +25,7 @@ namespace
   // Vertex and Frag shader source code for the full screen render
 
   const char *vertexShaderSource = R"(
-#version 330 core
+#version 420 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
 
@@ -38,7 +38,7 @@ void main () {
 )";
 
   const char *fragmentShaderSource = R"(
-#version 330 core
+#version 420 core
 out vec4 FragColor;
 
 in vec2 TexCoord;
@@ -129,10 +129,11 @@ void main () {
   GLuint rayTracerTextureHandle = 0;
   GLuint accumBufferTextureHandle = 0;
 
+  // Flags
   constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
-  constexpr bool SHOW_MODEL = true;
+  constexpr bool SHOW_MODEL = false;
   constexpr int HEIGHT = 800;
   constexpr int WIDTH = 1000;
   constexpr int MAX_LIGHTS = 10;
@@ -153,7 +154,39 @@ void main () {
               << ", message = " << message << std::endl;
   }
 
-} // namespace
+  void UpdateLightsWithCamera(std::vector<RayTracer::PointLight> &lights, const RayTracer::Camera &camera)
+  {
+    // Clear existing lights
+    lights.clear();
+
+    // Get camera position and orientation vectors
+    glm::vec3 camPos = camera.getOrigin();
+    glm::vec3 camForward = camera.getForward();
+    glm::vec3 camRight = camera.getRightVector();
+    glm::vec3 camUp = camera.getUpVector();
+
+    // Add lights that follow camera orientation, not just position
+
+    // Main light - placed in front based on camera direction
+    lights.emplace_back(camPos + camForward * (-4.0f) + camUp * 2.0f,
+                        glm::vec3(1.0f, 1.0f, 1.0f), 60.0f);
+
+    // Left and right lights using camera's right vector
+    lights.emplace_back(camPos + camRight * (-3.0f) + camUp * 2.0f,
+                        glm::vec3(0.8f, 0.8f, 1.0f), 30.0f);
+    lights.emplace_back(camPos + camRight * 3.0f + camUp * 2.0f,
+                        glm::vec3(1.0f, 0.8f, 0.8f), 30.0f);
+
+    // Top light using camera's up vector
+    lights.emplace_back(camPos + camUp * 4.0f,
+                        glm::vec3(1.0f, 1.0f, 0.8f), 40.0f);
+
+    // Ambient light behind the camera to soften shadows
+    lights.emplace_back(camPos + camForward * 4.0f,
+                        glm::vec3(0.4f, 0.4f, 0.5f), 20.0f);
+  }
+
+} 
 
 void InitCompute(Graphics::Compute &compute)
 {
@@ -182,47 +215,55 @@ void SetupWorld(RayTracer::World &world)
 
 void SetupQuad()
 {
-  // Create and compile shaders first
+  std::cout << "Setting up quad graphics..." << std::endl;
+
+  // Clean up any existing resources first
+  if (quadVAO != 0)
+  {
+    glDeleteVertexArrays(1, &quadVAO);
+    quadVAO = 0;
+  }
+  if (quadVBO != 0)
+  {
+    glDeleteBuffers(1, &quadVBO);
+    quadVBO = 0;
+  }
+  if (quadShaderProgram != 0)
+  {
+    glDeleteProgram(quadShaderProgram);
+    quadShaderProgram = 0;
+  }
+
+  // Create shader program
   quadShaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
   if (quadShaderProgram == 0)
   {
-    std::cerr << "Shader program creation failed\n";
+    std::cerr << "CRITICAL ERROR: Quad shader program creation failed!" << std::endl;
     return;
   }
 
-  // Validate shader program
-  glValidateProgram(quadShaderProgram);
-  GLint validateStatus;
-  glGetProgramiv(quadShaderProgram, GL_VALIDATE_STATUS, &validateStatus);
-  if (!validateStatus)
-  {
-    GLchar infoLog[512];
-    glGetProgramInfoLog(quadShaderProgram, 512, nullptr, infoLog);
-    std::cerr << "Shader program validation failed:\n"
-              << infoLog << std::endl;
-    return;
-  }
-
-  // Create and set up VAO/VBO
+  // Create VAO
   glGenVertexArrays(1, &quadVAO);
   glBindVertexArray(quadVAO);
 
+  // Print VAO ID for debugging
+  //std::cout << "Created quadVAO: " << quadVAO << std::endl;
+
+  // Create VBO
   glGenBuffers(1, &quadVBO);
   glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
 
-  // Set up vertex attributes
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+  // Set attributes
   glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
 
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
 
-  // Clean state
+  // Important: Keep VAO bound
+  // Don't unbind the VAO
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-
-  std::cout << "Quad setup complete. Program ID: " << quadShaderProgram << ", VAO ID: " << quadVAO << std::endl;
 }
 
 void UpdateNoiseTex(std::vector<glm::vec3> &noiseData, std::vector<glm::vec3> &noiseUniformData)
@@ -261,28 +302,50 @@ void UpdateNoiseTex(std::vector<glm::vec3> &noiseData, std::vector<glm::vec3> &n
 
 void RenderQuad()
 {
-  // Program should already be bound from main loop
-
-  // Simply activate texture unit 0 and bind the texture
-  glActiveTexture(GL_TEXTURE0); // Texture unit 0 matches layout(binding = 0)
-  glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
-
-  // No need to set uniform location when using layout(binding = X)
-
-  // Bind VAO and draw
-  glBindVertexArray(quadVAO);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-
-  // Check for errors
-  GLenum err = glGetError();
-  if (err != GL_NO_ERROR)
+  // Re-verify program is active
+  GLint currentProgram = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+  if (currentProgram != quadShaderProgram)
   {
-    std::cerr << "OpenGL error after glDrawArrays: " << err << std::endl;
+    std::cerr << "ERROR: Program not active in RenderQuad(), manually binding..." << std::endl;
+    glUseProgram(quadShaderProgram);
   }
 
-  // Clean up state
-  glBindVertexArray(0);
-  glBindTexture(GL_TEXTURE_2D, 0);
+  // Verify VAO
+  if (quadVAO == 0)
+  {
+    std::cerr << "ERROR: quadVAO is 0! Cannot render quad" << std::endl;
+    return;
+  }
+
+  // Activate texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
+
+  // Store previous VAO state
+  GLint previousVAO = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &previousVAO);
+
+  // Bind our VAO
+  glBindVertexArray(quadVAO);
+
+  // Verify binding succeeded
+  GLint boundVAO = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &boundVAO);
+  if (boundVAO != quadVAO)
+  {
+    std::cerr << "ERROR: VAO binding failed! Expected: " << quadVAO << " Got: " << boundVAO << std::endl;
+    return;
+  }
+
+  // Draw
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+  // Restore previous VAO
+  if (previousVAO != 0)
+  {
+    glBindVertexArray(previousVAO);
+  }
 }
 
 void CleanupQuad()
@@ -290,6 +353,29 @@ void CleanupQuad()
   glDeleteVertexArrays(1, &quadVAO);
   glDeleteBuffers(1, &quadVBO);
   glDeleteProgram(quadShaderProgram);
+}
+
+void ValidateRenderState()
+{
+  // Check if VAO exists
+  if (quadVAO == 0)
+  {
+    std::cerr << "CRITICAL: quadVAO is 0, recreating quad setup" << std::endl;
+    SetupQuad();
+  }
+
+  // Check if quad shader program exists
+  if (quadShaderProgram == 0)
+  {
+    std::cerr << "CRITICAL: quadShaderProgram is 0, recreating quad setup" << std::endl;
+    SetupQuad();
+  }
+
+  // Check if texture exists
+  if (rayTracerTextureHandle == 0)
+  {
+    std::cerr << "CRITICAL: rayTracerTextureHandle is 0" << std::endl;
+  }
 }
 
 int main()
@@ -356,7 +442,12 @@ int main()
   // Set up the input handler
   InputHandler inputHandler(window, camera);
   glfwSetWindowUserPointer(window, &inputHandler);
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+  // Hide cursor but don't capture it
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
+  // Make sure mouse capture is disabled
+  inputHandler.EnableMouseCapture(false);
 
   // Input callbacks
   glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos, double ypos)
@@ -386,7 +477,7 @@ int main()
     // Initialize with actual data first
     texture.Init(blankData, WIDTH, HEIGHT);
 
-    // Get handle AFTER initialization, not before
+    // Get handle AFTER initialization
     rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0, true);
 
     // Configure texture immediately after getting handle
@@ -397,7 +488,6 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    // Setup rest of compute resources...
     accumBuffer.setWidth(WIDTH);
     accumBuffer.setHeight(HEIGHT);
     UpdateNoiseTex(noiseData, noiseDataUniform);
@@ -502,6 +592,8 @@ int main()
   }
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+  static float lastFrameTime = 0.0f;
+  static int frameCounter = 0;
   while (!glfwWindowShouldClose(window))
   {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -510,46 +602,124 @@ int main()
     while ((err = glGetError()) != GL_NO_ERROR)
       std::cerr << "OpenGL error: " << err << std::endl;
 
-    static float lastFrameTime = 0.0f;
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
+
+    // IMPORTANT: Process input first thing every frame
     inputHandler.ProcessInput(deltaTime);
 
-    std::cout << "Frame Time: " << deltaTime * 1000.0f << " ms" << std::endl;
+    // Debug frame rate less frequently
+    if (++frameCounter % 60 == 0)
+    {
+      std::cout << "Frame Time: " << deltaTime * 1000.0f << " ms" << std::endl;
+      frameCounter = 0;
+    }
 
+    bool resetBuffer = false;
+    static bool wasAnyInput = false;
+    static int noInputFrames = 0;
+    int maxAccumFrames = 32; // Reduced to prevent overexposure, causes the 'white' buildup when camera is still
+
+    // Get input state
     glm::vec3 movementDelta = inputHandler.GetMovementDelta();
     glm::vec2 rotationDelta = inputHandler.GetRotationDelta();
 
-    bool resetBuffer = false;
-    if (glm::length(movementDelta) > 0.0f || glm::length(rotationDelta) > 0.0f)
+    // Check for any active input
+    bool anyInput =
+        glm::length(movementDelta) > 0.0001f ||
+        glm::length(rotationDelta) > 0.0001f ||
+        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+    // Detect input state changes
+    if (anyInput)
     {
       resetBuffer = true;
       accumFrames = 0;
+      noInputFrames = 0;
+      wasAnyInput = true;
+    }
+    else
+    {
+      // No input this frame
+      noInputFrames++;
+
+      if (wasAnyInput && noInputFrames <= 5)
+      {
+        // Just stopped input - reset for a few more frames to stabilize
+        resetBuffer = true;
+        accumFrames = 0;
+      }
+      else if (accumFrames < maxAccumFrames)
+      {
+        // Continue accumulating up to the maximum
+        resetBuffer = false;
+        accumFrames++;
+      }
+
+      wasAnyInput = false;
     }
 
-    float movementSpeed = 0.8f;
-    compute.SetBool("resetAccumBuffer", resetBuffer);
+    // Add periodic forced reset to prevent any drift issues
+    if (frameCounter % 300 == 0)
+    {
+      resetBuffer = true;
+      accumFrames = 0;
+      //std::cout << "Periodic buffer reset at frame: " << frameCounter << std::endl;
+    }
+
+    // Also reset if requested by input handler
+    if (inputHandler.ShouldResetBuffer())
+    {
+      resetBuffer = true;
+      accumFrames = 0;
+      inputHandler.ClearResetFlag();
+    }
+
+    // Move the camera
+    float movementSpeed = 10.0f;
     camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta, movementSpeed);
+
+    // Update lights to move with camera EVERY FRAME for responsive lighting, can potentially modify this for static lights
+    // This is a critical function that should be called every frame to ensure lights are updated correctly
+    UpdateLightsWithCamera(lights, camera);
 
     if (RUN_COMPUTE_RT)
     {
+      // First store the current VAO state before compute operations
+      GLint previousVAO = 0;
+      glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &previousVAO);
+
+      // Ensure compute shader is active before using it
       compute.Use();
 
+      // IMPORTANT: Explicitly set resetAccumBuffer every frame
       compute.SetBool("resetAccumBuffer", resetBuffer);
+
+      // IMPORTANT: Always update camera data every frame regardless of input
       compute.SetVec3("cameraOrigin", camera.getOrigin());
       compute.SetVec3("cameraDirection", camera.getForward());
       compute.SetVec3("cameraUp", camera.getUpVector());
       compute.SetVec3("cameraRight", camera.getRightVector());
 
-      accumFrames++;
+      // Set accumFrames after potential reset
       compute.SetInt("accumFrames", accumFrames);
+
+      // Set other parameters
       compute.SetInt("Width", WIDTH);
       compute.SetInt("Height", HEIGHT);
       compute.SetUInt("bvh_count", 2); // models in scene
       compute.SetInt("lightCount", lights.size());
 
-      // Create SSBO for lights
+      // Force buffer reset periodically regardless of other conditions
+      if (frameCounter % 1200 == 0)
+      {
+        compute.SetBool("resetAccumBuffer", true);
+        compute.SetInt("accumFrames", 0);
+        //std::cout << "Forced compute shader buffer reset" << std::endl;
+      }
+
+      // Create SSBO for lights with refreshed data every frame
       GLuint ssbo;
       glGenBuffers(1, &ssbo);
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -557,7 +727,7 @@ int main()
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo);
 
       // IMPORTANT: Bind textures but DON'T try to set uniform locations manually
-      // Since your compute shader uses layout(binding = X) syntax
+      // Since compute shader uses layout(binding = X) syntax
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
 
@@ -575,36 +745,55 @@ int main()
                       GL_TEXTURE_FETCH_BARRIER_BIT |
                       GL_SHADER_STORAGE_BARRIER_BIT);
 
-      // Clean up compute resources
+      // Clean up compute resources BUT DON'T unbind VAO
       glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
       glDeleteBuffers(1, &ssbo);
 
+      // Force OpenGL to finish operations
       glFinish();
+
+      // Restore previous VAO binding if it was valid
+      if (previousVAO != 0)
+      {
+        glBindVertexArray(previousVAO);
+      }
     }
 
+    // IMPORTANT: Reset all state completely
+    glUseProgram(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+
+    // Clear any pending errors
     while ((err = glGetError()) != GL_NO_ERROR)
     {
       std::cerr << "OpenGL error before program switch: " << err << std::endl;
     }
 
-    glUseProgram(0);                 // First unbind any program
-    glActiveTexture(GL_TEXTURE0);    // Reset active texture unit
-    glBindTexture(GL_TEXTURE_2D, 0); // Unbind any textures
+    // Validate render state before rendering
+    ValidateRenderState();
 
-    // Now properly switch to render program
+    // Now bind the rendering program
     glUseProgram(quadShaderProgram);
 
-    // Verify program binding succeeded
+    // Debug validation
     GLint currentProgram = 0;
     glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
     if (currentProgram != quadShaderProgram)
     {
-      std::cerr << "Failed to activate quad program. Expected: " << quadShaderProgram
-                << ", Got: " << currentProgram << std::endl;
+      std::cerr << "CRITICAL ERROR: Failed to bind quad program!" << std::endl;
       return -1;
     }
 
-    // Now render without trying to set uniform locations between glUseProgram and RenderQuad
+    // Only render if texture is valid
     if (rayTracerTextureHandle != 0)
     {
       RenderQuad();

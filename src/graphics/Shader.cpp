@@ -156,6 +156,34 @@ namespace Graphics
         }
     }
 
+    void Compute::SetBool(const std::string &name, bool value)
+    {
+        // First ensure we're using the correct program
+        GLint currentProg = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &currentProg);
+        if (currentProg != m_program)
+        {
+            glUseProgram(m_program);
+        }
+
+        GLint location = glGetUniformLocation(m_program, name.c_str());
+        if (location == -1)
+        {
+            if (name != "resetAccumBuffer")
+            {
+                std::cerr << "Warning: Uniform '" << name << "' not found in compute shader" << std::endl;
+            }
+            return;
+        }
+        glUniform1i(location, static_cast<int>(value));
+
+        // Restore previous program if needed
+        if (currentProg != m_program && currentProg != 0)
+        {
+            glUseProgram(currentProg);
+        }
+    }
+
     void Graphics::Compute::SetInt(const std::string &name, int value)
     {
         GLint currentProg = 0;

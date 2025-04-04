@@ -113,8 +113,7 @@ void Camera::UpdateCameraVectors() {
     up = glm::normalize(glm::cross(right, front));
 }
 
-void Camera::MoveAndRotate(float deltaTime, const glm::vec3& movementDelta, const glm::vec2& rotationDelta) {
-    float movementSpeed = 0.5f;
+void Camera::MoveAndRotate(float deltaTime, const glm::vec3& movementDelta, const glm::vec2& rotationDelta, float movementSpeed) {
     position += movementDelta.x * right * deltaTime * movementSpeed; 
     position += movementDelta.y * up * deltaTime * movementSpeed;     
     position += movementDelta.z * front * deltaTime * movementSpeed; 

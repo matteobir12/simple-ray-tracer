@@ -43,7 +43,7 @@ out vec4 FragColor;
 
 in vec2 TexCoord;
 
-uniform sampler2D raytraceTexture;
+layout(binding = 0) uniform sampler2D raytraceTexture;
 
 void main () {
     FragColor = texture(raytraceTexture, TexCoord);
@@ -87,14 +87,16 @@ void main () {
   GLuint createShaderProgram(const char *vertexSource, const char *fragmentSource)
   {
     GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
-    if (vertexShader == 0) {
-        std::cerr << "Vertex shader compilation failed\n";
-        return 0;
+    if (vertexShader == 0)
+    {
+      std::cerr << "Vertex shader compilation failed\n";
+      return 0;
     }
     GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
-    if (fragmentShader == 0) {
-        std::cerr << "Fragment shader compilation failed\n";
-        return 0;
+    if (fragmentShader == 0)
+    {
+      std::cerr << "Fragment shader compilation failed\n";
+      return 0;
     }
 
     GLuint program = glCreateProgram();
@@ -153,22 +155,23 @@ void main () {
 
 } // namespace
 
-void InitCompute(Graphics::Compute& compute) {
-    compute.Init();
+void InitCompute(Graphics::Compute &compute)
+{
+  compute.Init();
 
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR)
-        std::cerr << "Compute Init Error: " << err << std::endl;
+  GLenum err;
+  while ((err = glGetError()) != GL_NO_ERROR)
+    std::cerr << "Compute Init Error: " << err << std::endl;
 
-    std::vector<AssetUtils::Model *> models;
-    auto model = AssetUtils::LoadObject("Rubik");
-    models.push_back(model.get());
-    /*auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
-    models.push_back(plane_model.get());*/
-    AssetUtils::UploadModelDataToGPU(models, 5);
+  std::vector<AssetUtils::Model *> models;
+  auto model = AssetUtils::LoadObject("Rubik");
+  models.push_back(model.get());
+  /*auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+  models.push_back(plane_model.get());*/
+  AssetUtils::UploadModelDataToGPU(models, 5);
 
-    while ((err = glGetError()) != GL_NO_ERROR)
-        std::cerr << "Bind Noise Buffer: " << err << std::endl;
+  while ((err = glGetError()) != GL_NO_ERROR)
+    std::cerr << "Bind Noise Buffer: " << err << std::endl;
 }
 
 void SetupWorld(RayTracer::World &world)
@@ -179,112 +182,128 @@ void SetupWorld(RayTracer::World &world)
 
 void SetupQuad()
 {
+  // Create and compile shaders first
   quadShaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
-
-  if (quadShaderProgram == 0) {
+  if (quadShaderProgram == 0)
+  {
     std::cerr << "Shader program creation failed\n";
     return;
   }
 
-  glGenVertexArrays(1, &quadVAO);
-  glGenBuffers(1, &quadVBO);
-
-  glBindVertexArray(quadVAO);
-
-  glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-  // position attribute
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
-  glEnableVertexAttribArray(0);
-
-  // texture coord attribute
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
-  glEnableVertexAttribArray(1);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-}
-
-void UpdateNoiseTex(std::vector<glm::vec3>& noiseData, std::vector<glm::vec3>& noiseUniformData) {
-    for (auto& vec : noiseData) {
-        vec = Common::randomUnitVector();
-    }
-
-    for (auto& vec2 : noiseUniformData) {
-        vec2 = Common::randomVec3(0.0f, 1.0f);
-    }
-
-    int dataSize = WIDTH * HEIGHT * 3 * sizeof(float);
-
-    glGenBuffers(2, noiseTBOs);
-    glGenTextures(2, noiseTex);
-
-    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[0]);
-    glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseData.data(), GL_DYNAMIC_DRAW);
-    glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[0]);
-    glBindBuffer(GL_TEXTURE_BUFFER, 0);
-
-    glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[1]);
-    glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseUniformData.data(), GL_DYNAMIC_DRAW);
-    glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[1]);
-    glBindBuffer(GL_TEXTURE_BUFFER, 0);
-
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR)
-        std::cerr << "Bind Noise Buffer: " << err << std::endl;
-}
-
-void RenderQuad() {
-  // std::cout << "RenderQuad => current context: "
-  // << glfwGetCurrentContext() << std::endl;
-  // std::cout << "RenderQuad => using texture handle: "
-  // << rayTracerTextureHandle << std::endl;
-
-  glUseProgram(quadShaderProgram);
-  
-  if(rayTracerTextureHandle == 0) {
-    std::cerr << "Error: rayTracerTextureHandle is 0 in RenderQuad" << std::endl;
+  // Validate shader program
+  glValidateProgram(quadShaderProgram);
+  GLint validateStatus;
+  glGetProgramiv(quadShaderProgram, GL_VALIDATE_STATUS, &validateStatus);
+  if (!validateStatus)
+  {
+    GLchar infoLog[512];
+    glGetProgramInfoLog(quadShaderProgram, 512, nullptr, infoLog);
+    std::cerr << "Shader program validation failed:\n"
+              << infoLog << std::endl;
     return;
   }
 
-  // Bind the ray tracer texture using the stored handle
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
-  GLint loc = glGetUniformLocation(quadShaderProgram, "raytraceTexture");
-  if (loc == -1) {
-      std::cerr << "Uniform 'raytraceTexture' not found" << std::endl;
-  }
-  glUniform1i(loc, 0);
-
-  // Draw the quad
+  // Create and set up VAO/VBO
+  glGenVertexArrays(1, &quadVAO);
   glBindVertexArray(quadVAO);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-  GLenum err = glGetError();
-  if (err != GL_NO_ERROR) {
-      std::cerr << "OpenGL error after glDrawArrays: " << err << std::endl;
-  }
+
+  glGenBuffers(1, &quadVBO);
+  glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+  // Set up vertex attributes
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+
+  // Clean state
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
+
+  std::cout << "Quad setup complete. Program ID: " << quadShaderProgram << ", VAO ID: " << quadVAO << std::endl;
 }
 
-void CleanupQuad() {
+void UpdateNoiseTex(std::vector<glm::vec3> &noiseData, std::vector<glm::vec3> &noiseUniformData)
+{
+  for (auto &vec : noiseData)
+  {
+    vec = Common::randomUnitVector();
+  }
+
+  for (auto &vec2 : noiseUniformData)
+  {
+    vec2 = Common::randomVec3(0.0f, 1.0f);
+  }
+
+  int dataSize = WIDTH * HEIGHT * 3 * sizeof(float);
+
+  glGenBuffers(2, noiseTBOs);
+  glGenTextures(2, noiseTex);
+
+  glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[0]);
+  glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseData.data(), GL_DYNAMIC_DRAW);
+  glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
+  glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[0]);
+  glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+  glBindBuffer(GL_TEXTURE_BUFFER, noiseTBOs[1]);
+  glBufferData(GL_TEXTURE_BUFFER, dataSize, noiseUniformData.data(), GL_DYNAMIC_DRAW);
+  glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
+  glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, noiseTBOs[1]);
+  glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+  GLenum err;
+  while ((err = glGetError()) != GL_NO_ERROR)
+    std::cerr << "Bind Noise Buffer: " << err << std::endl;
+}
+
+void RenderQuad()
+{
+  // Program should already be bound from main loop
+
+  // Simply activate texture unit 0 and bind the texture
+  glActiveTexture(GL_TEXTURE0); // Texture unit 0 matches layout(binding = 0)
+  glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
+
+  // No need to set uniform location when using layout(binding = X)
+
+  // Bind VAO and draw
+  glBindVertexArray(quadVAO);
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+
+  // Check for errors
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR)
+  {
+    std::cerr << "OpenGL error after glDrawArrays: " << err << std::endl;
+  }
+
+  // Clean up state
+  glBindVertexArray(0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void CleanupQuad()
+{
   glDeleteVertexArrays(1, &quadVAO);
   glDeleteBuffers(1, &quadVBO);
   glDeleteProgram(quadShaderProgram);
 }
 
-int main() { // int argc, char** argv
+int main()
+{ // int argc, char** argv
   if (!glfwInit())
     return -1;
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  GLFWwindow* const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
-  if (!window) {
+  GLFWwindow *const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
+  if (!window)
+  {
     glfwTerminate();
     std::cerr << "Couldn't create window\n";
     return -1;
@@ -292,19 +311,22 @@ int main() { // int argc, char** argv
 
   glfwMakeContextCurrent(window);
 
-  if (!glfwGetCurrentContext()) {
+  if (!glfwGetCurrentContext())
+  {
     std::cerr << "Failed to create OpenGL context!" << std::endl;
     return -1;
   }
 
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+  {
     std::cerr << "Failed to initialize GLAD!" << std::endl;
     return -1;
   }
 
   glEnable(GL_DEBUG_OUTPUT);
   // Required OpenGL >= 4.3
-  if (!glDebugMessageCallback) {
+  if (!glDebugMessageCallback)
+  {
     std::cout << "Bad OpenGL version\n";
     return 0;
   }
@@ -335,102 +357,137 @@ int main() { // int argc, char** argv
   InputHandler inputHandler(window, camera);
   glfwSetWindowUserPointer(window, &inputHandler);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-  
-  // Input callbacks
-  glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-    auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-    handler->MouseCallback(window, xpos, ypos);
-  });
 
-  glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+  // Input callbacks
+  glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos, double ypos)
+                           {
     auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-    handler->KeyCallback(window, key, scancode, action, mods);
-  });
+    handler->MouseCallback(window, xpos, ypos); });
+
+  glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode, int action, int mods)
+                     {
+    auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
+    handler->KeyCallback(window, key, scancode, action, mods); });
 
   Graphics::Compute compute("./shaders/raytrace_compute.glsl");
   Graphics::Texture texture;
   Graphics::Texture32 accumBuffer;
   std::vector<glm::vec3> noiseData(WIDTH * HEIGHT);
   std::vector<glm::vec3> noiseDataUniform(WIDTH * HEIGHT);
-  if (RUN_COMPUTE_RT) {
-      texture.setWidth(WIDTH);
-      texture.setHeight(HEIGHT);
-      accumBuffer.setWidth(WIDTH);
-      accumBuffer.setHeight(HEIGHT);
-      rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0, true);
-      InitCompute(compute);
-      UpdateNoiseTex(noiseData, noiseDataUniform);
-      accumBufferTextureHandle = accumBuffer.getTextureHandle(GL_TEXTURE3, 3, true);
+  if (RUN_COMPUTE_RT)
+  {
+    // Create a texture with proper format for both compute writing and fragment sampling
+    texture.setWidth(WIDTH);
+    texture.setHeight(HEIGHT);
+
+    Graphics::Color8 defaultColor = {0, 0, 0};
+    std::vector<Graphics::Color8> blankData(WIDTH * HEIGHT, defaultColor);
+
+    // Initialize with actual data first
+    texture.Init(blankData, WIDTH, HEIGHT);
+
+    // Get handle AFTER initialization, not before
+    rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0, true);
+
+    // Configure texture immediately after getting handle
+    glBindTexture(GL_TEXTURE_2D, rayTracerTextureHandle);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Setup rest of compute resources...
+    accumBuffer.setWidth(WIDTH);
+    accumBuffer.setHeight(HEIGHT);
+    UpdateNoiseTex(noiseData, noiseDataUniform);
+    accumBufferTextureHandle = accumBuffer.getTextureHandle(GL_TEXTURE3, 3, true);
+    InitCompute(compute);
   }
   // Run the Raytracer
-  else if (RUN_RT) {
-      // Define the camera
-      RayTracer::CameraSettings settings;
-      settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
-      settings.width = WIDTH;
-      settings.samplesPerPixel = 1;
-      settings.maxDepth = 5;
+  else if (RUN_RT)
+  {
+    // Define the camera
+    RayTracer::CameraSettings settings;
+    settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
+    settings.width = WIDTH;
+    settings.samplesPerPixel = 1;
+    settings.maxDepth = 5;
 
-      RayTracer::Camera camera(settings);
-      camera.Initialize();
+    RayTracer::Camera camera(settings);
+    camera.Initialize();
 
-      // Set up the input handler
-      InputHandler inputHandler(window, camera);
-      glfwSetWindowUserPointer(window, &inputHandler);
-      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide the cursor and capture it
+    // Set up the input handler
+    InputHandler inputHandler(window, camera);
+    glfwSetWindowUserPointer(window, &inputHandler);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Hide the cursor and capture it
 
-      // Input callbacks
-      glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+    // Input callbacks
+    glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xpos, double ypos)
+                             {
           auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-          handler->MouseCallback(window, xpos, ypos);
-      });
+          handler->MouseCallback(window, xpos, ypos); });
 
-      glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+    glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode, int action, int mods)
+                       {
           auto* const handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-          handler->KeyCallback(window, key, scancode, action, mods);
-      });
+          handler->KeyCallback(window, key, scancode, action, mods); });
 
-      RayTracer::World world;
-      SetupWorld(world);
+    RayTracer::World world;
+    SetupWorld(world);
 
-      std::vector<RayTracer::PointLight> lights;
-      lights.reserve(MAX_LIGHTS);
-      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1, 1, 1), 5.0f);
+    std::vector<RayTracer::PointLight> lights;
+    lights.reserve(MAX_LIGHTS);
+    lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1, 1, 1), 5.0f);
 
-      RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
-      raytracer.Init(world);
-      raytracer.Render();
+    RayTracer::RayTracer raytracer(settings, "image.ppm", REND_TO_TEX);
+    raytracer.Init(world);
+    raytracer.Render();
 
-      if (REND_TO_TEX)
-      {
-          texture = raytracer.getTexture();
-          // Get the texture handle once and store it
-          // Note: This calls the method that creates the texture
-          // We're casting away const because the method isn't const
-          rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0);
-          texture.debugReadTexture();
-      }
-  }
-  else {
-      // Create a simple test texture
-      std::vector<Graphics::Color8> pixels(WIDTH * HEIGHT);
-      for (int y = 0; y < HEIGHT; y++) {
-        for (int i = 0; i < WIDTH * HEIGHT; i++) {
-          // red
-          pixels[i] = Graphics::Color8{(Graphics::byte)y, 20, 20};
-       }
-      }
-      
-      texture.Init(pixels, WIDTH, HEIGHT);
-      
-      // Get the texture handle 
+    if (REND_TO_TEX)
+    {
+      texture = raytracer.getTexture();
+      // Get the texture handle once and store it
+      // Note: This calls the method that creates the texture
+      // We're casting away const because the method isn't const
       rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0);
+      if (rayTracerTextureHandle == 0)
+      {
+        std::cerr << "Error: rayTracerTextureHandle is 0" << std::endl;
+        return -1;
+      }
+      texture.debugReadTexture();
+    }
+  }
+  else
+  {
+    // Create a simple test texture
+    std::vector<Graphics::Color8> pixels(WIDTH * HEIGHT);
+    for (int y = 0; y < HEIGHT; y++)
+    {
+      for (int i = 0; i < WIDTH * HEIGHT; i++)
+      {
+        // red
+        pixels[i] = Graphics::Color8{(Graphics::byte)y, 20, 20};
+      }
+    }
+
+    texture.Init(pixels, WIDTH, HEIGHT);
+
+    // Get the texture handle
+    rayTracerTextureHandle = texture.getTextureHandle(GL_TEXTURE0, 0);
+    if (rayTracerTextureHandle == 0)
+    {
+      std::cerr << "Error: rayTracerTextureHandle is 0" << std::endl;
+      return -1;
+    }
   }
 
   int accumFrames = 0;
   std::vector<RayTracer::PointLight> lights;
   lights.reserve(MAX_LIGHTS);
-  if (SHOW_MODEL) {
+  if (SHOW_MODEL)
+  {
     lights.emplace_back(glm::vec3(1.0, 10.0, 10.0), glm::vec3(1.0, 1.0, 1.0), 50.0f);
     lights.emplace_back(glm::vec3(-5.0, 15.0, 10.0), glm::vec3(1.0, 0.2, 0.2), 15.0f);
     lights.emplace_back(glm::vec3(5.0, 15.0, 10.0), glm::vec3(0.2, 1.0, 0.2), 15.0f);
@@ -438,84 +495,119 @@ int main() { // int argc, char** argv
     lights.emplace_back(glm::vec3(5.0, 5.0, 10.0), glm::vec3(1.0, 1.0, 0.1), 15.0f);
     lights.emplace_back(glm::vec3(0.0, 21.0, 17.0), glm::vec3(1.0, 1.0, 1.0), 50.0f);
   }
-  else {
-      lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 10.0f);
-      lights.emplace_back(glm::vec3(-2.5, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 3.0f);
+  else
+  {
+    lights.emplace_back(glm::vec3(1.0, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 10.0f);
+    lights.emplace_back(glm::vec3(-2.5, 2.0, 0.0), glm::vec3(1.0, 1.0, 1.0), 3.0f);
   }
 
   glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-  while (!glfwWindowShouldClose(window)) {
+  while (!glfwWindowShouldClose(window))
+  {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     GLenum err;
-    while((err = glGetError()) != GL_NO_ERROR)
+    while ((err = glGetError()) != GL_NO_ERROR)
       std::cerr << "OpenGL error: " << err << std::endl;
 
     static float lastFrameTime = 0.0f;
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - lastFrameTime;
-    lastFrameTime = currentFrameTime;    
+    lastFrameTime = currentFrameTime;
     inputHandler.ProcessInput(deltaTime);
 
-    std::cout << "Frame Time: "  << deltaTime * 1000.0f << " ms" << std::endl;
+    std::cout << "Frame Time: " << deltaTime * 1000.0f << " ms" << std::endl;
 
     glm::vec3 movementDelta = inputHandler.GetMovementDelta();
     glm::vec2 rotationDelta = inputHandler.GetRotationDelta();
 
     bool resetBuffer = false;
-    if (glm::length(movementDelta) > 0.0f || glm::length(rotationDelta) > 0.0f) {
-        resetBuffer = true;
-        accumFrames = 0; 
+    if (glm::length(movementDelta) > 0.0f || glm::length(rotationDelta) > 0.0f)
+    {
+      resetBuffer = true;
+      accumFrames = 0;
     }
 
+    float movementSpeed = 0.8f;
     compute.SetBool("resetAccumBuffer", resetBuffer);
-    camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta);
+    camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta, movementSpeed);
 
-    if (RUN_COMPUTE_RT) {
+    if (RUN_COMPUTE_RT)
+    {
       compute.Use();
-  
+
       compute.SetBool("resetAccumBuffer", resetBuffer);
       compute.SetVec3("cameraOrigin", camera.getOrigin());
       compute.SetVec3("cameraDirection", camera.getForward());
       compute.SetVec3("cameraUp", camera.getUpVector());
       compute.SetVec3("cameraRight", camera.getRightVector());
-  
-        accumFrames++;
-        compute.SetInt("accumFrames", accumFrames);
+
+      accumFrames++;
+      compute.SetInt("accumFrames", accumFrames);
       compute.SetInt("Width", WIDTH);
       compute.SetInt("Height", HEIGHT);
-        compute.SetUInt("bvh_count", 2); // models in scene
-
+      compute.SetUInt("bvh_count", 2); // models in scene
       compute.SetInt("lightCount", lights.size());
-  
+
+      // Create SSBO for lights
       GLuint ssbo;
       glGenBuffers(1, &ssbo);
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
       glBufferData(GL_SHADER_STORAGE_BUFFER, lights.size() * sizeof(RayTracer::PointLight), lights.data(), GL_DYNAMIC_DRAW);
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo);
-  
+
+      // IMPORTANT: Bind textures but DON'T try to set uniform locations manually
+      // Since your compute shader uses layout(binding = X) syntax
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_BUFFER, noiseTex[0]);
-      glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseTex"), 0);
-        glBindTexture(GL_TEXTURE_BUFFER, 0);
-  
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
-        glUniform1i(glGetUniformLocation(compute.GetProgram(), "noiseUniformTex"), 0);
-        glBindTexture(GL_TEXTURE_BUFFER, 0);
 
-      glDispatchCompute((unsigned int)(WIDTH / 8), (unsigned int)(HEIGHT / 8) , 1);      
-      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_BUFFER, noiseTex[1]);
 
-        //accumBuffer.updateImageDataFromGPU();
-        //float* imgData = accumBuffer.getImageData();
-        //std::cout << "First pixel from texture: R=" << (int)imgData[500] << " G=" << (int)imgData[501] << " B=" << (int)imgData[502] << std::endl;
+      // Bind image for writing
+      glBindImageTexture(0, rayTracerTextureHandle, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+
+      // Dispatch compute shader
+      glDispatchCompute((unsigned int)(WIDTH / 8), (unsigned int)(HEIGHT / 8), 1);
+
+      // Complete memory barrier to ensure all writes are finished
+      glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+                      GL_TEXTURE_FETCH_BARRIER_BIT |
+                      GL_SHADER_STORAGE_BARRIER_BIT);
+
+      // Clean up compute resources
+      glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
       glDeleteBuffers(1, &ssbo);
-  }
-    
-    // Render the full screen quad with the ray tracer texture
-    if (rayTracerTextureHandle != 0) {
-        RenderQuad();
+
+      glFinish();
+    }
+
+    while ((err = glGetError()) != GL_NO_ERROR)
+    {
+      std::cerr << "OpenGL error before program switch: " << err << std::endl;
+    }
+
+    glUseProgram(0);                 // First unbind any program
+    glActiveTexture(GL_TEXTURE0);    // Reset active texture unit
+    glBindTexture(GL_TEXTURE_2D, 0); // Unbind any textures
+
+    // Now properly switch to render program
+    glUseProgram(quadShaderProgram);
+
+    // Verify program binding succeeded
+    GLint currentProgram = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+    if (currentProgram != quadShaderProgram)
+    {
+      std::cerr << "Failed to activate quad program. Expected: " << quadShaderProgram
+                << ", Got: " << currentProgram << std::endl;
+      return -1;
+    }
+
+    // Now render without trying to set uniform locations between glUseProgram and RenderQuad
+    if (rayTracerTextureHandle != 0)
+    {
+      RenderQuad();
     }
 
     glfwSwapBuffers(window);
@@ -523,11 +615,11 @@ int main() { // int argc, char** argv
   }
 
   // Clean up
-  
+
   CleanupQuad();
   glDeleteTextures(2, noiseTex);
   glDeleteBuffers(2, noiseTBOs);
-  
+
   glfwDestroyWindow(window);
   glfwTerminate();
   return 0;

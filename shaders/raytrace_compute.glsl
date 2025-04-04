@@ -10,7 +10,7 @@
 #define SHOW_MODELS true
 
 layout(local_size_x = 8, local_size_y = 8) in;
-layout(rgba8, binding = 0) uniform image2D imgOutput;
+layout(rgba8, binding = 0) writeonly uniform image2D imgOutput;
 layout(binding = 1) uniform samplerBuffer noiseTex;
 layout(binding = 2) uniform samplerBuffer noiseUniformTex;
 layout(rgba32f, binding = 3) uniform image2D accumBuffer;

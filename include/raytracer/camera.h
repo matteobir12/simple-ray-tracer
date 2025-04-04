@@ -74,7 +74,7 @@ public:
     void Rotate(float yawOffset, float pitchOffset);
 
     // Batched movement
-    void MoveAndRotate(float deltaTime, const glm::vec3& movementDelta, const glm::vec2& rotationDelta);
+    void MoveAndRotate(float deltaTime, const glm::vec3& movementDelta, const glm::vec2& rotationDelta, float movementSpeed);
 
 private:
     void UpdateCameraVectors();

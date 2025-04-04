@@ -50,6 +50,7 @@ public:
 	{}
 
 	void Init() override;
+	void Graphics::Compute::SetInt(const std::string& name, int value);
 };
 
 }

@@ -644,7 +644,7 @@ int main()
       // No input this frame
       noInputFrames++;
 
-      if (wasAnyInput && noInputFrames <= 5)
+      if (wasAnyInput)
       {
         // Just stopped input - reset for a few more frames to stabilize
         resetBuffer = true;
@@ -654,18 +654,9 @@ int main()
       {
         // Continue accumulating up to the maximum
         resetBuffer = false;
-        accumFrames++;
       }
 
       wasAnyInput = false;
-    }
-
-    // Add periodic forced reset to prevent any drift issues
-    if (frameCounter % 300 == 0)
-    {
-      resetBuffer = true;
-      accumFrames = 0;
-      //std::cout << "Periodic buffer reset at frame: " << frameCounter << std::endl;
     }
 
     // Also reset if requested by input handler
@@ -686,6 +677,7 @@ int main()
 
     if (RUN_COMPUTE_RT)
     {
+        accumFrames++;
       // First store the current VAO state before compute operations
       GLint previousVAO = 0;
       glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &previousVAO);
@@ -710,14 +702,6 @@ int main()
       compute.SetInt("Height", HEIGHT);
       compute.SetUInt("bvh_count", 2); // models in scene
       compute.SetInt("lightCount", lights.size());
-
-      // Force buffer reset periodically regardless of other conditions
-      if (frameCounter % 1200 == 0)
-      {
-        compute.SetBool("resetAccumBuffer", true);
-        compute.SetInt("accumFrames", 0);
-        //std::cout << "Forced compute shader buffer reset" << std::endl;
-      }
 
       // Create SSBO for lights with refreshed data every frame
       GLuint ssbo;

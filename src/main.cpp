@@ -130,7 +130,7 @@ void main () {
   constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
-  constexpr bool SHOW_MODEL = true;
+  constexpr bool SHOW_MODEL = false;
   constexpr int HEIGHT = 800;
   constexpr int WIDTH = 1000;
   constexpr int MAX_LIGHTS = 10;

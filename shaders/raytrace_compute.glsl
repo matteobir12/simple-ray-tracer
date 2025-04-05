@@ -1,13 +1,13 @@
 #version 450
 #extension GL_ARB_bindless_texture : require
 
-#define SPHERE_COUNT 2
+#define SPHERE_COUNT 5
 #define MAX_LIGHTS 10
 #define M_PI 3.1415926535897
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
-#define SHOW_SPHERES false
-#define SHOW_MODELS true
+#define SHOW_SPHERES true
+#define SHOW_MODELS false
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) uniform image2D imgOutput;
@@ -294,24 +294,70 @@ void main() {
 	// TODO move all this data to uniform buffers
 	Material material1;
 	Material material2;
+	Material material3;
+	Material material4;
+	Material material5;
+
+	// Ground Material
 	material1.albedo = vec3(0.2, 0.8, 0.8);
 	material1.specular = vec3(0.2, 0.4, 0.4);
 	material1.roughness = 0.01;
 	material1.metalness = 0.99;
 	material1.useSpec = false;
+
+	// Red Material
 	material2.albedo = vec3(0.8, 0.3, 0.3);
 	material2.specular = vec3(0.9, 0.7, 0.7);
 	material2.roughness = 0.1;
 	material2.metalness = 0.5;
 	material2.useSpec = true;
 
+	// Green Material
+	material3.albedo = vec3(0.2, 0.9, 0.3);
+	material3.specular = vec3(0.2, 0.9, 0.9);
+	material3.roughness = 0.3;
+	material3.metalness = 0.95;
+	material3.useSpec = true;
+
+	// Blue Material
+	material4.albedo = vec3(0.2, 0.4, 1.0);
+	material4.specular = vec3(0.8, 0.8, 0.9);
+	material4.roughness = 0.01;
+	material4.metalness = 0.9;
+	material4.useSpec = false;
+
+	// Yellow Material
+	material5.albedo = vec3(0.9, 0.8, 0.1);
+	material5.specular = vec3(0.3, 0.3, 0.1);
+	material5.roughness = 0.7;
+	material5.metalness = 0.3;
+	material5.useSpec = false;
+
 	Sphere world[SPHERE_COUNT];
+	// Ground
 	world[1].pos = vec3(0.0, -100.5, -1.0);
 	world[1].radius = 100.0;
 	world[1].mat = material1;
-	world[0].pos = vec3(0.0, 0.0, -1.5);
+
+	// Blue Sphere
+	world[0].pos = vec3(1.8, 0.0, -2.0);
 	world[0].radius = 0.5;
-	world[0].mat = material2;
+	world[0].mat = material4;
+
+	// Green Sphere
+	world[2].pos = vec3(0.55, 0.0, -2.0);
+	world[2].radius = 0.5;
+	world[2].mat = material3;
+
+	// Red Sphere
+	world[3].pos = vec3(-0.55, 0.0, -2.0);
+	world[3].radius = 0.5;
+	world[3].mat = material2;
+
+	// Yellow Sphere
+	world[4].pos = vec3(-1.8, 0.0, -2.0);
+	world[4].radius = 0.5;
+	world[4].mat = material5;
 
 	CameraSettings settings;
 	settings.width = Width;

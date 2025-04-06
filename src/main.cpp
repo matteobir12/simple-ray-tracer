@@ -433,8 +433,8 @@ int main()
   RayTracer::CameraSettings settings;
   settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
   settings.width = WIDTH;
-  settings.samplesPerPixel = 1;
-  settings.maxDepth = 2;
+  settings.samplesPerPixel = 500;
+  settings.maxDepth = 100;
 
   RayTracer::Camera camera(settings);
   camera.Initialize();
@@ -668,12 +668,12 @@ int main()
     }
 
     // Move the camera
-    float movementSpeed = 10.0f;
+    float movementSpeed = 1.0f;
     camera.MoveAndRotate(deltaTime, movementDelta, rotationDelta, movementSpeed);
 
     // Update lights to move with camera EVERY FRAME for responsive lighting, can potentially modify this for static lights
     // This is a critical function that should be called every frame to ensure lights are updated correctly
-    UpdateLightsWithCamera(lights, camera);
+    //UpdateLightsWithCamera(lights, camera);
 
     if (RUN_COMPUTE_RT)
     {

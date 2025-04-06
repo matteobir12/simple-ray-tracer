@@ -133,7 +133,7 @@ void main () {
   constexpr bool RUN_COMPUTE_RT = true;
   constexpr bool RUN_RT = true;
   constexpr bool REND_TO_TEX = true;
-  constexpr bool SHOW_MODEL = false;
+  constexpr bool SHOW_MODEL = true;
   constexpr int HEIGHT = 800;
   constexpr int WIDTH = 1000;
   constexpr int MAX_LIGHTS = 10;
@@ -617,9 +617,6 @@ int main()
     }
 
     bool resetBuffer = false;
-    static bool wasAnyInput = false;
-    static int noInputFrames = 0;
-    int maxAccumFrames = 32; // Reduced to prevent overexposure, causes the 'white' buildup when camera is still
 
     // Get input state
     glm::vec3 movementDelta = inputHandler.GetMovementDelta();
@@ -636,27 +633,6 @@ int main()
     {
       resetBuffer = true;
       accumFrames = 0;
-      noInputFrames = 0;
-      wasAnyInput = true;
-    }
-    else
-    {
-      // No input this frame
-      noInputFrames++;
-
-      if (wasAnyInput)
-      {
-        // Just stopped input - reset for a few more frames to stabilize
-        resetBuffer = true;
-        accumFrames = 0;
-      }
-      else if (accumFrames < maxAccumFrames)
-      {
-        // Continue accumulating up to the maximum
-        resetBuffer = false;
-      }
-
-      wasAnyInput = false;
     }
 
     // Also reset if requested by input handler
@@ -689,6 +665,7 @@ int main()
       compute.SetBool("resetAccumBuffer", resetBuffer);
 
       // IMPORTANT: Always update camera data every frame regardless of input
+      //std::cout << "setting camera position to " << camera.getOrigin().x << ", " << camera.getOrigin().y << ", " << camera.getOrigin().z << "\n";
       compute.SetVec3("cameraOrigin", camera.getOrigin());
       compute.SetVec3("cameraDirection", camera.getForward());
       compute.SetVec3("cameraUp", camera.getUpVector());

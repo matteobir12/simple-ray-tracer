@@ -6,8 +6,8 @@
 #define M_PI 3.1415926535897
 #define DIFFUSE_BRDF 1
 #define SPECULAR_BRDF 2
-#define SHOW_SPHERES true
-#define SHOW_MODELS false
+#define SHOW_SPHERES false
+#define SHOW_MODELS true
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba8, binding = 0) writeonly uniform image2D imgOutput;
@@ -405,6 +405,6 @@ void main() {
 		pixelColor = vec3(0.0, 1.0, 0.0);
 	}
 
-	vec4 outColor = vec4(linearToSrgb(accumColor / accumFrames)/*pixelColor*/, 1.0);
+	vec4 outColor = vec4(linearToSrgb(accumColor / accumFrames), 1.0);
 	imageStore(imgOutput, texelCoord, outColor);
 }

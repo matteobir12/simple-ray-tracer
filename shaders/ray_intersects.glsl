@@ -1,5 +1,5 @@
 #define FIRST_BIND_POINT 5
-
+#define STACK_SIZE 64
 // Look into these sizes
 // #ifdef COMPUTE_TEST
 // layout(local_size_x = 8, local_size_y = 8) in;
@@ -97,7 +97,8 @@ bool IntersectsTriangle(
 
 // Returns index of triangle hit, or sentinal if miss (uint(-1))
 uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float intersection_distance, inout vec3 tri_norm) {
-  uint stack[64];
+
+  uint stack[STACK_SIZE];
   int stack_idx = 0;
   stack[stack_idx++] = bvh_start_index;
   uint out_tri_indx = -1;
@@ -123,6 +124,10 @@ uint Intersects(uint bvh_start_index, vec3 ray_origin, vec3 ray_dir, inout float
         }
       } else {
         // internal node
+        if (STACK_SIZE - 2 <= stack_idx) {
+          return uint(-1);
+        }
+
         stack[stack_idx++] = node.first_child_or_prim_index;
         stack[stack_idx++] = node.first_child_or_prim_index + 1;
       }

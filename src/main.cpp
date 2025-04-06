@@ -199,8 +199,8 @@ void InitCompute(Graphics::Compute &compute)
   std::vector<AssetUtils::Model *> models;
   auto model = AssetUtils::LoadObject("Rubik");
   models.push_back(model.get());
-  /*auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
-  models.push_back(plane_model.get());*/
+  auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+  models.push_back(plane_model.get());
   AssetUtils::UploadModelDataToGPU(models, 5);
 
   while ((err = glGetError()) != GL_NO_ERROR)

@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_bindless_texture : require
+#extension GL_ARB_gpu_shader_int64 : require
 
 #define SPHERE_COUNT 2
 #define MAX_LIGHTS 10

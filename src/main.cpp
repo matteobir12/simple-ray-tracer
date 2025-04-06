@@ -197,11 +197,14 @@ void InitCompute(Graphics::Compute &compute)
     std::cerr << "Compute Init Error: " << err << std::endl;
 
   std::vector<AssetUtils::Model *> models;
-  auto model = AssetUtils::LoadObject("Rubik");
-  models.push_back(model.get());
-  auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
-  models.push_back(plane_model.get());
+  // auto model = AssetUtils::LoadObject("Rubik");
+  // models.push_back(model.get());
+  // auto plane_model = AssetUtils::LoadObject("11803_Airplane_v1_l1");
+  // models.push_back(plane_model.get());
+  auto ship_model = AssetUtils::LoadObject("ship");
+  models.push_back(ship_model.get());
   AssetUtils::UploadModelDataToGPU(models, 5);
+  //AssetUtils::UpdateModelMatrix(0, glm::mat4(1000));
 
   while ((err = glGetError()) != GL_NO_ERROR)
     std::cerr << "Bind Noise Buffer: " << err << std::endl;
@@ -384,7 +387,7 @@ int main()
     return -1;
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   GLFWwindow *const window = glfwCreateWindow(WIDTH, HEIGHT, "Simple RayTracer", nullptr, nullptr);
@@ -700,7 +703,7 @@ int main()
       // Set other parameters
       compute.SetInt("Width", WIDTH);
       compute.SetInt("Height", HEIGHT);
-      compute.SetUInt("bvh_count", 2); // models in scene
+      compute.SetUInt("bvh_count", 1); // models in scene
       compute.SetInt("lightCount", lights.size());
 
       // Create SSBO for lights with refreshed data every frame

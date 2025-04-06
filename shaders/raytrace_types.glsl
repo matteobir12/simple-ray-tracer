@@ -21,7 +21,7 @@ struct MaterialFromOBJ {
   float specular_ex;
   vec3 specular;
   uint use_texture; // bool
-  uvec2 handle;
+  u64vec2 handle;
   uint _pad0;
   uint _pad1;
 };

@@ -136,6 +136,10 @@ float shadowedF90(vec3 F0) {
 	return min(1.0f, t * luminance(F0));
 }
 
+uint64_t packHandle(u64vec2 h) {
+  return (uint64_t(h.y) << 32) | uint64_t(h.x);
+}
+
 //intersect_point needs to be in the same frame as the triangles (model frame)
 Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Material out_mat) {
   MaterialFromOBJ in_mat = materials[tri.material_idx];
@@ -162,8 +166,10 @@ Material TriangleToSupportedMat(Triangle tri, vec3 intersect_point, inout Materi
     float w = (d00 * d21 - d01 * d20) * denom;
     float u = 1.0f - v - w;
     vec2 texcoord = u * t0.texture + v * t1.texture + w * t2.texture;
-    sampler2D tex_sampler = sampler2D(in_mat.handle);
+    uint64_t handle = packHandle(in_mat.handle);
+    sampler2D tex_sampler = sampler2D(handle);
     out_mat.albedo = texture(tex_sampler, texcoord).xyz;
+    // out_mat.albedo = vec3(1,0,0);
   }
 
   out_mat.specular = in_mat.specular;

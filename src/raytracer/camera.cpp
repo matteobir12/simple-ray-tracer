@@ -5,13 +5,14 @@
 namespace RayTracer
 {
 
-    void Camera::Initialize()
+    void Camera::Initialize(bool showModel)
     {
         width = cameraSettings.width;
         height = int(cameraSettings.width / cameraSettings.aspect);
         height = (height < 1) ? 1 : height;
 
         pixelSamplesScale = 1.0f / cameraSettings.samplesPerPixel;
+        this->showModel = showModel;
 
         UpdateCameraVectors();
     }
@@ -186,7 +187,10 @@ namespace RayTracer
     void Camera::Reset()
     {
         // Reset to default values
-        position = glm::vec3(0.0f, 1.0f, 4.0f); // Adjusted to better see the model
+        if(!showModel)
+            position = glm::vec3(0.0f, 1.0f, 4.0f); // Adjusted to better see the model
+        else
+            position = glm::vec3(0.0f, 9.0f, 40.0f);
         cameraSettings.lookAt = glm::vec3(0.0f, 0.0f, 0.0f);
 
         // Reset angle values
@@ -200,7 +204,7 @@ namespace RayTracer
 
         // Update all vectors and matrices
         UpdateCameraVectors();
-        Initialize();
+        Initialize(showModel);
 
         // Debug output
         std::cout << "Camera reset: Position (" << position.x << ", "

@@ -43,7 +43,7 @@ Graphics::Color8 writeColor(const Color& pixelColor) {
 }
 
 void RayTracer::Init(World& w) {
-	camera.Initialize();
+	camera.Initialize(false);
 	world = w;
 }
 

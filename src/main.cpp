@@ -131,7 +131,7 @@ void main () {
 
   // Flags
   constexpr bool RUN_COMPUTE_RT = true;
-  constexpr bool RUN_RT = true;
+  constexpr bool RUN_RT = false;
   constexpr bool REND_TO_TEX = true;
   constexpr bool SHOW_MODEL = true;
   constexpr int HEIGHT = 800;
@@ -437,7 +437,8 @@ int main()
   settings.maxDepth = 100;
 
   RayTracer::Camera camera(settings);
-  camera.Initialize();
+  camera.Initialize(SHOW_MODEL);
+  camera.Reset();
 
   // Set up the input handler
   InputHandler inputHandler(window, camera);
@@ -505,7 +506,7 @@ int main()
     settings.maxDepth = 5;
 
     RayTracer::Camera camera(settings);
-    camera.Initialize();
+    camera.Initialize(SHOW_MODEL);
 
     // Set up the input handler
     InputHandler inputHandler(window, camera);

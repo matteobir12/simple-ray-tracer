@@ -4,12 +4,14 @@ vec3 getLightData(Light light, vec3 hitPos) {
 	return length(lightDist) > 0 ? normalize(lightDist) : lightDist;
 }
 
+// Mostly from "A Gentle Introduction To DirectX Raytracing" by Chris Wyman
 float ggxNormalDistribution(float NdotH, float roughness) {
 	float a2 = roughness * roughness;
 	float d = ((NdotH * a2 - NdotH) * NdotH + 1);
 	return a2 / max(0.001f, (d * d * M_PI));
 }
 
+// Inspired by the Smith G1 term in "Crash Course in BRDF Implementation" by Jakub Boksansky
 float ggxNormalDistributionNew(float NdotH, float alphaSquared) {
 	float b = ((alphaSquared - 1.0f) * NdotH * NdotH + 1.0f);
 	return alphaSquared / max(0.001, (M_PI * b * b));
@@ -33,10 +35,12 @@ vec3 schlickFresnel(vec3 f0, float u) {
 	return f0 + (vec3(1.0f, 1.0f, 1.0f) - f0) * pow(max(0.001, 1.0f - u), 5.0f);
 }
 
+// Inspired by the "Crash Course in BRDF Implementation" by Jakub Boksansky
 vec3 FresnelSchlickNew(vec3 f0, float f90, float NdotS) {
 	return f0 + (f90 - f0) * pow(1.0f - NdotS, 5.0f);
 }
 
+// Inspired by the "Crash Course in BRDF Implementation" by Jakub Boksansky
 float SmithGAlpha(float alpha, float NdotS) {
 	return NdotS / (max(0.0001, alpha) * sqrt(1.0 - min(0.99999, NdotS * NdotS)));
 }
@@ -45,12 +49,7 @@ float SmithGLambdaGGX(float a) {
 	return (-1.0 + sqrt(1.0 + (1.0 / max(0.001, a * a)))) * 0.5;
 }
 
-//float Smith_G2_Height_Correlated_GGX_Lagarde(float alphaSquared, float NdotL, float NdotV) {
-//	float a = NdotV * sqrt(alphaSquared + NdotL * (NdotL - alphaSquared * NdotL));
-//	float b = NdotL * sqrt(alphaSquared + NdotV * (NdotV - alphaSquared * NdotV));
-//	return 0.5f / (a + b);
-//}
-
+// Inspired by the "Crash Course in BRDF Implementation" by Jakub Boksansky
 float Smith_G2_Height_Correlated(float alpha, float NdotL, float NdotV) {
 	float aL = SmithGAlpha(alpha, NdotL);
 	float aV = SmithGAlpha(alpha, NdotV);
@@ -61,8 +60,8 @@ float Smith_G2_Height_Correlated(float alpha, float NdotL, float NdotV) {
 vec3 SampleDiffuse(vec3 point, vec3 hitNorm) {
 
 	// Get 2 random numbers to select our sample with
-	float r1 = randFloatSampleUniform(point.xy);// (randFloat(point.xy));
-	float r2 = randFloatSampleUniform(point.yz);// (randFloat(point.yz));
+	float r1 = randFloatSampleUniform(point.xy);
+	float r2 = randFloatSampleUniform(point.yz);
 
 	// Cosine weighted hemisphere sample from RNG
 	vec3 bitangent = getPerpendicularVector(hitNorm);
@@ -99,6 +98,7 @@ vec3 SampleSpecularHalfVec(vec3 point, float roughness, vec3 hitNorm) {
 	return T * (sinThetaH * cos(phiH)) + B * (sinThetaH * sin(phiH)) + hitNorm * cosThetaH;
 }
 
+// Inspired by the "Crash Course in BRDF Implementation" by Jakub Boksansky
 vec3 SampleSpecularMicrofacet(HitRecord hit, vec3 V, float alpha, float alphaSquared, vec3 specularF0, out vec3 weight) {
 	
 	// Sample a microfacet normal (H)

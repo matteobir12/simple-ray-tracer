@@ -87,6 +87,7 @@ Ray GetRay(Camera cam, CameraSettings settings, int i, int j, int samp) {
 	return r;
 }
 
+// Mostly Taken from "Ray Tracing in One Weekend" by Peter Shirley, Trevor David Black, Steve Hollasch
 bool SphereHit(Ray ray, Sphere s, float min, float max, inout HitRecord rec) {
 	vec3 oc = s.pos - ray.origin;
 	float a = pow(length(ray.direction), 2.0);
@@ -172,6 +173,7 @@ bool CheckLightOccluded(vec3 pos, Light light, Sphere[SPHERE_COUNT] spheres) {
 	return rec.hit;
 }
 
+// Inspired by the "Crash Course in BRDF Implementation" by Jakub Boksansky
 bool SampleLights(HitRecord hit, out float sampleWeight, out Light selectedLight) {
 	float totalWeights = 0.0;
 	float samplePdf = 0.0;

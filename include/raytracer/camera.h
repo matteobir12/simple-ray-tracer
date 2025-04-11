@@ -35,7 +35,7 @@ namespace RayTracer
         {
         }
 
-        void Initialize();
+        void Initialize(bool showModel);
         Common::Ray GetRay(uint i, uint j);
         Color RayColor(const Common::Ray &r, uint depth, World &world, const PointLight &light) const;
 
@@ -86,6 +86,7 @@ namespace RayTracer
         glm::vec3 right;
         float yaw;
         float pitch;
+        bool showModel;
 
         glm::vec3 SampleSquare() const;
         Point3 defocusDiskSample() const;

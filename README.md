@@ -1,4 +1,4 @@
-Making a simple Ray Tracer
+# Simple Path Tracer
 
 CMPT 469 Group Project
 
@@ -11,10 +11,10 @@ xmake build script provided, but any build environment will do.
 Scene can be switched between showing example spheres and loaded model by setting the SHOW_MODEL flag in main.cpp
 
 Camera Controlls:
-Move (Up, Down, Left, Right): W, A, S, D
-Move Up: Space
-Move Down: Shift
-Reset Camera Position: R
+Move (Up, Down, Left, Right): W, A, S, D\
+Move Up: Space\
+Move Down: Shift\
+Reset Camera Position: R\
 Pan Camera: Mouse Left + Move
 
 

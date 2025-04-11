@@ -2,7 +2,7 @@ Making a simple Ray Tracer
 
 CMPT 469 Group Project
 
-Authors: Matteo Bir, Ryan ..., Amaan Khan
+Authors: Matteo Bir, Ryan Cochlin, Amaan Khan
 
 Instructions:
 Build and run with C++17 or greater.

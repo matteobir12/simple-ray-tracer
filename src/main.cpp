@@ -498,6 +498,8 @@ int main()
   // Run the Raytracer
   else if (RUN_RT)
   {
+    // Most software Ray Tracer Code from "Ray Tracing in One Weekend" by Peter Shirley, Trevor David Black, Steve Hollasch.
+    // Software raytracer not currently in use, but code path kept in.
     // Define the camera
     RayTracer::CameraSettings settings;
     settings.aspect = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
@@ -680,6 +682,7 @@ int main()
       compute.SetInt("Height", HEIGHT);
       compute.SetUInt("bvh_count", 2); // models in scene
       compute.SetInt("lightCount", lights.size());
+      compute.SetBool("showModel", SHOW_MODEL);
 
       // Create SSBO for lights with refreshed data every frame
       GLuint ssbo;

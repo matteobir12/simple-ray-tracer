@@ -15,6 +15,8 @@ layout(binding = 1) uniform samplerBuffer noiseTex;
 layout(binding = 2) uniform samplerBuffer noiseUniformTex;
 layout(rgba32f, binding = 3) uniform image2D accumBuffer;
 
+uniform bool showModel;
+
 //Camera Data
 uniform int Width;
 uniform int Height;
@@ -127,7 +129,7 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	rec.hit = false;
 
   ray.intersection_distance = max;
-  if (SHOW_SPHERES) {
+  if (!showModel) {
 	  for (int i = 0; i < SPHERE_COUNT; i++)
 	  {
 		  if (SphereHit(ray, spheres[i], min, ray.intersection_distance, rec))
@@ -138,7 +140,7 @@ HitRecord CheckHit(Ray ray, Sphere[SPHERE_COUNT] spheres, float min, float max) 
 	  }
   }
 
-  if (SHOW_MODELS) {
+  if (showModel) {
     for (uint i = 0; i < bvh_count; i++) {
       // transform ray into model's space
       vec4 trans_origin = bvhs[i].frame * vec4(ray.origin, 1.);
@@ -367,7 +369,7 @@ void main() {
 	settings.samplesPerPixel = 1; // DON'T USE THIS!!
 	settings.maxDepth = 5;
 	settings.vFov = 90.0;
-	if (!SHOW_MODELS) {
+	if (!showModel) {
 		settings.samplesPerPixel = 100;
 		settings.origin = vec3(0.0, 0.0, 0.0);
 		settings.lookAt = vec3(0.0, 0.0, -1.0);
